@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: hik-isup
+server:
+  port: 16233
