@@ -1,4 +1,3 @@
-README.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**
@@ -33,6 +32,7 @@ build/
 pic/
 output/
 
+/EHomeSDKLog/
 /sdk/
 /rtsp_server/
 *.tar
