@@ -191,10 +191,10 @@ public class StreamDemo {
     /**
      * 开启实时预览监听(保存到本地文件)
      */
-    public void startRealPlayListen_File() {
+    public void startRealPlayListen_File(String filename) {
         //预览监听
         if (fPREVIEW_NEWLINK_CB_FILE == null) {
-            fPREVIEW_NEWLINK_CB_FILE = new FPREVIEW_NEWLINK_CB_FILE();
+            fPREVIEW_NEWLINK_CB_FILE = new FPREVIEW_NEWLINK_CB_FILE(filename);
         }
         System.arraycopy(propertiesUtil.readValue("SmsServerListenIP").getBytes(), 0, struPreviewListen.struIPAdress.szIP, 0, propertiesUtil.readValue("SmsServerListenIP").length());
         struPreviewListen.struIPAdress.wPort = Short.parseShort(propertiesUtil.readValue("SmsServerListenPort")); //流媒体服务器监听端口
@@ -476,11 +476,16 @@ public class StreamDemo {
      * 实时预览数据回调（预览数据存储到文件）
      */
     public class FPREVIEW_NEWLINK_CB_FILE implements HCISUPStream.PREVIEW_NEWLINK_CB {
-//        private PipedOutputStream outputStream;
+        //        private PipedOutputStream outputStream;
 //
 //        FPREVIEW_NEWLINK_CB_FILE(PipedOutputStream outputStream) {
 //            this.outputStream = outputStream;
 //        }
+        private String filename;
+
+        public FPREVIEW_NEWLINK_CB_FILE(String filename) {
+            this.filename = filename;
+        }
 
         public boolean invoke(int lLinkHandle, HCISUPStream.NET_EHOME_NEWLINK_CB_MSG pNewLinkCBMsg, Pointer pUserData) {
             System.out.println("FPREVIEW_NEWLINK_CB_File callback");
@@ -489,7 +494,7 @@ public class StreamDemo {
             lPreviewHandle = lLinkHandle;
             HCISUPStream.NET_EHOME_PREVIEW_DATA_CB_PARAM struDataCB = new HCISUPStream.NET_EHOME_PREVIEW_DATA_CB_PARAM();
             if (fPREVIEW_DATA_CB_FILE == null) {
-                fPREVIEW_DATA_CB_FILE = new FPREVIEW_DATA_CB_FILE();
+                fPREVIEW_DATA_CB_FILE = new FPREVIEW_DATA_CB_FILE(filename);
             }
             struDataCB.fnPreviewDataCB = fPREVIEW_DATA_CB_FILE;
 
@@ -572,7 +577,13 @@ public class StreamDemo {
      * 预览数据的回调函数 - 保存到文件
      */
     public class FPREVIEW_DATA_CB_FILE implements HCISUPStream.PREVIEW_DATA_CB {
-//        JavaCVProcessThread t = null;
+        private String filename;
+
+        public FPREVIEW_DATA_CB_FILE(String filename) {
+            this.filename = filename;
+        }
+
+        //        JavaCVProcessThread t = null;
         //实时流回调函数/
         public void invoke(int iPreviewHandle, HCISUPStream.NET_EHOME_PREVIEW_CB_MSG pPreviewCBMsg, Pointer pUserData) {
             if (Count == 100) {//降低打印频率
@@ -583,7 +594,7 @@ public class StreamDemo {
             // 推流过快可能导致推流失败，这里处理重试逻辑
             int offset = 0;
             byte[] videoStreamData = pPreviewCBMsg.pRecvdata.getByteArray(offset, pPreviewCBMsg.dwDataLen);
-            FileUtil.writeFile("out.mp4", videoStreamData);
+            FileUtil.writeFile("/opt/hik-isup/video/" + filename, videoStreamData);
 //            try {
 //                if (Objects.isNull(t)) {
 //                    //启动javacv解析处理器线程

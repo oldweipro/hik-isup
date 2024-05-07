@@ -77,7 +77,7 @@ public class SdkFunctionDemo {
                  * 实时预览模块(需要设备在线, 需要实现前面初始化流媒体服务(StreamDemo.eStream_Init)的代码)
                  */
                 System.out.println("\n[Function]取流预览模块(保存到本地文件)");
-                streamDemo.startRealPlayListen_File();
+                streamDemo.startRealPlayListen_File("out.mp4");
                 // FIXME 注意这里的IChannel，不同设备类型可能不太一样
                 streamDemo.RealPlay(0,1);
 

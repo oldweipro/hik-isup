@@ -27,7 +27,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     @Override
     @Async("taskExecutor")
     public void openStreamCV(int lLoginID, int lChannel, String deviceId, String liveAddress) {
-        streamDemo.startRealPlayListen_File();
+        streamDemo.startRealPlayListen_File("out.mp4");
         streamDemo.RealPlay(lLoginID, lChannel);
         FFmpegFrameGrabber grabber = null;
         FFmpegFrameRecorder recorder = null;
@@ -84,7 +84,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             String liveAddress = "rtmp://192.168.2.57:15800/rtp/" + deviceId;
             Thread readerThread = new Thread(new StreamThread(inputStream, liveAddress));
             readerThread.start();
-            streamDemo.startRealPlayListen_File();
+            streamDemo.startRealPlayListen_File("out.mp4");
             // FIXME 注意这里的IChannel，不同设备类型可能不太一样
             streamDemo.RealPlay(lLoginID, lChannel);
 //            while (true);
@@ -106,7 +106,15 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
     @Override
     public void saveStream(int lLoginID, int lChannel, String deviceId) {
-        streamDemo.startRealPlayListen_File();
+        streamDemo.startRealPlayListen_File(deviceId + ".mp4");
         streamDemo.RealPlay(lLoginID, lChannel);
+        // 这里只预览20s, 方便demo示例代码的效果演示
+        try {
+            Thread.sleep(300 * 1000);
+        } catch (InterruptedException e) {
+            log.error("睡眠失败");
+        }
+
+        streamDemo.StopRealPlay(0);
     }
 }
