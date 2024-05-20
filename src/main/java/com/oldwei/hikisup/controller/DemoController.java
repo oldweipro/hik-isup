@@ -1,6 +1,5 @@
 package com.oldwei.hikisup.controller;
 
-import com.oldwei.hikisup.sdk.SdkService.StreamService.StreamDemo;
 import lombok.RequiredArgsConstructor;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.javacv.FFmpegFrameGrabber;
@@ -14,8 +13,6 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @RequestMapping("/demo")
 public class DemoController {
-
-    private final StreamDemo streamDemo;
 
     @GetMapping("/rtmp")
     public void rtmp() {

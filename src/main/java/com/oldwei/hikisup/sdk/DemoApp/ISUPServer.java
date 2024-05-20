@@ -22,8 +22,8 @@ public class ISUPServer {
         ssDemo.startSsListen();
 
         //初始化流媒体服务(需要预览取流时使用)
-        StreamDemo streamDemo = new StreamDemo();
-        streamDemo.eStream_Init();
+//        StreamDemo streamDemo = new StreamDemo(null);
+//        streamDemo.eStream_Init();
 
         //初始化语音流媒体服务(需要语音对讲时使用)
         VoiceDemo voiceDemo = new VoiceDemo();
@@ -66,7 +66,7 @@ public class ISUPServer {
                      */
                     System.out.println("\n[Module]通用的sdk服务实例代码");
                     SdkFunctionDemo.dispatch(str, IsupTest.lLoginID,
-                            cmsDemo, alarmDemo, ssDemo, streamDemo, voiceDemo);
+                            cmsDemo, alarmDemo, ssDemo, null, voiceDemo);
                     break;
                 }
                 case "1": {

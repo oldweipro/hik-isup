@@ -1,5 +1,12 @@
 package com.oldwei.hikisup.util;
 
+import org.bytedeco.ffmpeg.global.avcodec;
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.opencv.global.opencv_core;
+import org.bytedeco.opencv.global.opencv_imgcodecs;
+import org.bytedeco.opencv.opencv_core.Mat;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -23,6 +30,25 @@ public class FileUtil {
             }
         } catch (IOException e) {
             System.out.println("创建文件时发生错误：" + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void formatFile(String fileName, byte[] content) {
+        try {
+            FFmpegFrameGrabber grabber = new FFmpegFrameGrabber(fileName);
+            grabber.start();
+
+            FFmpegFrameRecorder recorder = new FFmpegFrameRecorder("outputFilePath.mp4", grabber.getImageWidth(), grabber.getImageHeight());
+            recorder.setVideoCodec(avcodec.AV_CODEC_ID_MPEG4);
+            recorder.setFormat("avi");
+            recorder.start();
+
+            while (true) {
+                recorder.record(grabber.grab());
+            }
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

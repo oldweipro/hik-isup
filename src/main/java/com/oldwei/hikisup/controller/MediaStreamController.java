@@ -3,17 +3,20 @@ package com.oldwei.hikisup.controller;
 import com.oldwei.hikisup.domain.DeviceCache;
 import com.oldwei.hikisup.domain.DeviceRemoteControl;
 import com.oldwei.hikisup.sdk.SdkService.CmsService.CmsDemo;
+import com.oldwei.hikisup.sdk.service.impl.CmsUtil;
 import com.oldwei.hikisup.service.IMediaStreamService;
 import com.oldwei.hikisup.util.GlobalCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpStatus;
 
-import java.net.MalformedURLException;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -25,7 +28,7 @@ import java.util.Objects;
 @RequestMapping("/mediaStream")
 public class MediaStreamController {
     private final IMediaStreamService mediaStreamService;
-    private final CmsDemo cmsDemo;
+    private final CmsUtil cmsUtil;
 
     @GetMapping("/pushStream")
     public String pushStream() {
@@ -61,14 +64,38 @@ public class MediaStreamController {
     }
 
     @GetMapping("/video")
-    public ResponseEntity<Resource> getVideo() throws MalformedURLException {
-        Path videoPath = Paths.get("/opt/hik-isup/video/AZ8888888.mp4");
-        Resource videoResource = new UrlResource(videoPath.toUri());
+    public ResponseEntity<Resource> getVideo() throws IOException {
+        Path videoPath = Paths.get("AZ8888888.mp4");
+        // 指定要下载的文件路径
+        URL fileDownloadUrl = videoPath.toUri().toURL();
+        UrlResource resource = new UrlResource(fileDownloadUrl);
 
-        if (videoResource.exists() && videoResource.isReadable()) {
-            return ResponseEntity.ok().body(videoResource);
+        // 确保文件存在且可读
+        if (resource.exists() && resource.isReadable()) {
+            // 获取文件名
+            String fileName = resource.getFilename();
+
+            // 设置Content-Disposition头，用于定义文件名和传输编码
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName);
+
+            // 设置Content-Type为文件类型，这里使用文件名进行猜测
+            String contentType = URLConnection.guessContentTypeFromName(fileName);
+            if (contentType == null) {
+                contentType = "application/octet-stream"; // 默认类型
+            }
+            headers.add(HttpHeaders.CONTENT_TYPE, contentType);
+
+            // 设置Content-Length头，表示文件大小
+            headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(resource.contentLength()));
+
+            // 创建ResponseEntity对象，使用文件流作为响应体
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(resource);
         } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            // 如果文件不存在或不可读，则返回404
+            return ResponseEntity.notFound().build();
         }
     }
 
@@ -90,7 +117,7 @@ public class MediaStreamController {
             DeviceCache device = (DeviceCache) object;
             if (Objects.nonNull(device)) {
                 int lLoginID = device.getLLoginID();
-                return cmsDemo.CMS_XMLRemoteControl(lLoginID);
+                return cmsUtil.CMS_XMLRemoteControl(lLoginID);
             }
         }
         DeviceRemoteControl deviceRemoteControl = new DeviceRemoteControl();

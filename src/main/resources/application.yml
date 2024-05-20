@@ -3,3 +3,5 @@ spring:
     name: hik-isup
 server:
   port: 16233
+hik:
+  pushStreamUrl: "rtmp://192.168.2.30:15800/rtp/"

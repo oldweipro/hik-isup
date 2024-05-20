@@ -2,7 +2,7 @@ package com.oldwei.hikisup.scheduled;
 
 import com.oldwei.hikisup.domain.DeviceCache;
 import com.oldwei.hikisup.domain.DeviceRemoteControl;
-import com.oldwei.hikisup.sdk.SdkService.CmsService.CmsDemo;
+import com.oldwei.hikisup.sdk.service.impl.CmsUtil;
 import com.oldwei.hikisup.service.IMediaStreamService;
 import com.oldwei.hikisup.util.GlobalCacheService;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class ScheduledTask {
-    private final CmsDemo cmsDemo;
+    private final CmsUtil cmsUtil;
     private final IMediaStreamService mediaStreamService;
     // Cron表达式范例：
     //
@@ -50,7 +50,7 @@ public class ScheduledTask {
             DeviceCache deviceCache = (DeviceCache) value;
             int lLoginID = deviceCache.getLLoginID();
             // 同步通道号
-            DeviceRemoteControl deviceRemoteControl = cmsDemo.CMS_XMLRemoteControl(lLoginID);
+            DeviceRemoteControl deviceRemoteControl = cmsUtil.CMS_XMLRemoteControl(lLoginID);
             deviceCache.setLChannel(deviceRemoteControl.getLChannel());
             deviceCache.setIsOnline(deviceRemoteControl.getIsOnline());
             // 推流操作

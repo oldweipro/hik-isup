@@ -8,37 +8,40 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 
-import static org.bytedeco.ffmpeg.global.avcodec.AV_CODEC_ID_H264;
-
 public class JavaCVProcessThread extends Thread {
-    FFmpegFrameGrabber grabber = null;
-    FFmpegFrameRecorder recorder = null;
-    private boolean isPinClosed = false; // 新增标志用于跟踪pin流状态
-    PipedInputStream pin;
-    PipedOutputStream pout;
+    private FFmpegFrameGrabber grabber = null;
+    private FFmpegFrameRecorder recorder = null;
+    private PipedInputStream pin;
+    private PipedOutputStream pout;
+    private final String pushStreamUrl;
+    private boolean shouldBeNull = false;
+    public boolean getShouldBeNull() {
+        return this.shouldBeNull;
+    }
 
     /**
      * 创建用于把字节数组转换为inputstream流的管道流
+     *
      * @throws IOException
      */
-    public JavaCVProcessThread() throws IOException {
+    public JavaCVProcessThread(String pushStreamUrl) throws IOException {
         pout = new PipedOutputStream();
         pin = new PipedInputStream(pout);
+        System.out.println("推送地址：" + pushStreamUrl);
+        this.pushStreamUrl = pushStreamUrl;
     }
 
     /**
      * 异步接收海康/大华/宇视设备sdk回调实时视频裸流数据
+     *
      * @param data
      * @param size
      */
     public void push(byte[] data, int size) {
         try {
-            if (data.length == 0) {
-                System.out.println("没了");
-            }
-            pout.write(data,0,size);
+            pout.write(data, 0, size);
         } catch (IOException e) {
-//            e.printStackTrace();
+            e.printStackTrace();
         }
     }
 
@@ -47,52 +50,40 @@ public class JavaCVProcessThread extends Thread {
         try {
             grabber = new FFmpegFrameGrabber(pin, 0);
             grabber.start();
-            String liveAddress = "rtmp://192.168.2.57:15800/rtp/livehime";
-            recorder = new FFmpegFrameRecorder(liveAddress, 1920, 1080);
-                recorder.setVideoCodec(grabber.getVideoCodec());
-            System.out.println(grabber.getVideoCodec());
-//                recorder.setFormat(grabber.getFormat());
-            System.out.println(grabber.getFormat());
+            recorder = new FFmpegFrameRecorder(pushStreamUrl, 1920, 1080);
+            System.out.println("视频编码：" + grabber.getVideoCodec());
+            recorder.setVideoCodec(grabber.getVideoCodec());
+            // 一般都是非flv编码格式，如mpeg，推流的情况下使用flv，所以这里写死为flv
             recorder.setFormat("flv");
-//                System.out.println(grabber.getAudioChannels());
+            if (grabber.getAudioChannels() != 0) {
+                System.out.println("音频信息：" + grabber.getAudioCodec());
+                recorder.setAudioCodec(grabber.getAudioCodec());
+            }
             // set 0 禁用音频
-//                recorder.setAudioChannels(0);
-//                recorder.setAudioCodec(grabber.getAudioCodec());
+            recorder.setAudioChannels(grabber.getAudioChannels());
             recorder.start();
             Frame frame;
             while ((frame = grabber.grabFrame()) != null) {
                 recorder.record(frame);
             }
-//            byte[] buffer = new byte[1024]; // 用于读取的缓冲区
-//            int bytesRead;
-//            while (!isPinClosed) {
-//                System.out.println("什么玩意");
-//                try {
-//                    bytesRead = pin.read(buffer); // 读取输入流
-//                    if (bytesRead == -1) { // 如果读取到流末尾，设置流关闭状态并退出循环
-//                        isPinClosed = true;
-//                        System.out.println("没了结束");
-//                        break;
-//                    }
-//                } catch (IOException e) {
-//                    System.out.println("Error reading from pin: " + e.getMessage());
-//                    isPinClosed = true; // 设置流关闭状态
-//                }
-//                recorder.record(grabber.grabFrame());
-//            }
         } catch (IOException e) {
-            System.out.println("通道关闭");
+            e.printStackTrace();
         } finally {
             try {
                 grabber.close();
                 recorder.close();
                 pout.close();
                 pin.close();
+                pout = null;
+                pin = null;
+                shouldBeNull = true;
                 System.out.println("关流成功");
             } catch (IOException e) {
                 System.out.println("关流失败");
                 e.printStackTrace();
             }
         }
+        shouldBeNull = true;
+        System.out.println("线程run结束");
     }
 }

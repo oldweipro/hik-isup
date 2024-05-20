@@ -90,7 +90,7 @@ public class CmsDemo {
             //注册服务初始化
             boolean binit = hCEhomeCMS.NET_ECMS_Init();
             if (binit) {
-                System.out.println("初始化成功");
+                System.out.println("注册服务初始化");
             }
             //设置HCAapSDKCom组件库文件夹所在路径
             HCISUPCMS.BYTE_ARRAY ptrByteArrayCom = new HCISUPCMS.BYTE_ARRAY(256);
