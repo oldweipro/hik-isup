@@ -27,6 +27,7 @@ public class ISUPServiceConfig {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        log.info("+++++++++++++ 初始化 配置文件 +++++++++++++++++");
         return propertiesUtil;
     }
 
@@ -101,7 +102,7 @@ public class ISUPServiceConfig {
             ihcisupcms.NET_ECMS_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
 
         }
-        ihcisupcms.NET_ECMS_SetLogToFile(3, System.getProperty("user.dir") + "/EHomeSDKLog", false);
+        log.info("+++++++++++++ 初始化 CMS +++++++++++++++++");
         return ihcisupcms;
     }
 
@@ -146,7 +147,6 @@ public class ISUPServiceConfig {
             if (!hikISUPStream.NET_ESTREAM_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer())) {
                 log.error("NET_ESTREAM_SetSDKLocalCfg 5 failed, error: {}", hikISUPStream.NET_ESTREAM_GetLastError());
             }
-//            hikISUPStream.NET_ESTREAM_SetLogToFile(3, "..\\EHomeSDKLog", false);
         } else if (OsSelect.isLinux()) {
             //设置libcrypto.so所在路径
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
@@ -173,8 +173,8 @@ public class ISUPServiceConfig {
             if (!hikISUPStream.NET_ESTREAM_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer())) {
                 log.error("NET_ESTREAM_SetSDKLocalCfg 5 failed, error: {}", hikISUPStream.NET_ESTREAM_GetLastError());
             }
-            hikISUPStream.NET_ESTREAM_SetLogToFile(3, "./EHomeSDKLog", false);
         }
+        log.info("+++++++++++++ 初始化 流媒体 +++++++++++++++++");
         return hikISUPStream;
     }
 }

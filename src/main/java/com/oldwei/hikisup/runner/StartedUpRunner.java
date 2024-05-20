@@ -37,7 +37,7 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
         int CmsHandle = ihcisupcms.NET_ECMS_StartListen(struCMSListenPara);
         if (CmsHandle < 0) {
             ihcisupcms.NET_ECMS_Fini();
-            log.info("NET_ECMS_StartListen failed, error code: {}", ihcisupcms.NET_ECMS_GetLastError());
+            log.error("NET_ECMS_StartListen failed, error code: {}", ihcisupcms.NET_ECMS_GetLastError());
         } else {
             String CmsListenInfo = new String(struCMSListenPara.struAddress.szIP).trim() + "_" + struCMSListenPara.struAddress.wPort;
             log.info("register service: {}, NET_ECMS_StartListen succeed!", CmsListenInfo);

@@ -32,8 +32,20 @@ public class MediaStreamController {
 
     @GetMapping("/pushStream")
     public String pushStream() {
-
-        return "oh yeah!";
+        Map<String, Object> objectMap = GlobalCacheService.getInstance().getAll();
+        // 检查 objectMap 是否为 null 或者是否为空
+        if (objectMap != null && !objectMap.isEmpty()) {
+            // 取出一个对象
+            Map.Entry<String, Object> entry = objectMap.entrySet().iterator().next();
+            String key = entry.getKey();
+            DeviceCache stream = (DeviceCache) entry.getValue();
+            mediaStreamService.saveStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
+            // 打印 key 和 value
+            return "Key: " + key + ", Value: " + stream;
+        } else {
+            // objectMap 为空或为 null 的情况
+            return "objectMap is null or empty.";
+        }
     }
 
     @DeleteMapping("/pushStream/{deviceId}")
