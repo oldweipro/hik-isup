@@ -70,7 +70,7 @@ public class ISUPServiceConfig {
             //注册服务初始化
             boolean binit = ihcisupcms.NET_ECMS_Init();
             if (binit) {
-                System.out.println("初始化成功");
+                log.info("初始化成功");
             }
             //设置HCAapSDKCom组件库文件夹所在路径
             BYTE_ARRAY ptrByteArrayCom = new BYTE_ARRAY(256);

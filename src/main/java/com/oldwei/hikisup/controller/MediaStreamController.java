@@ -75,6 +75,32 @@ public class MediaStreamController {
         return "oh yeah!";
     }
 
+    /**
+     * 保存视频录像并返回视频地址
+     *
+     * @param deviceId
+     * @return
+     */
+    @GetMapping("/pushStream/{deviceId}")
+    public String pushStream(@PathVariable String deviceId) {
+        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+        mediaStreamService.saveStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
+        return "oh yeah!";
+    }
+
+    /**
+     * 保存视频录像并返回视频地址
+     *
+     * @param deviceId
+     * @return
+     */
+    @GetMapping("/stopPushStream/{deviceId}")
+    public String stopPushStream(@PathVariable String deviceId) {
+        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+        mediaStreamService.stopPushStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
+        return "oh yeah!";
+    }
+
     @GetMapping("/video")
     public ResponseEntity<Resource> getVideo() throws IOException {
         Path videoPath = Paths.get("AZ8888888.mp4");

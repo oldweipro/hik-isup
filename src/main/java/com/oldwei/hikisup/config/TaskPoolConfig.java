@@ -1,5 +1,6 @@
 package com.oldwei.hikisup.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -10,6 +11,7 @@ import java.util.concurrent.Executor;
 /**
  * 线程池参数配置，多个线程池实现线程池隔离，@Async注解，默认使用系统自定义线程池，可在项目中设置多个线程池，在异步调用的时候，指明需要调用的线程池名称，比如：@Async("taskName")
  */
+@Slf4j
 @EnableAsync
 @Configuration
 public class TaskPoolConfig {
@@ -20,7 +22,7 @@ public class TaskPoolConfig {
     public Executor taskExecutor() {
         // 返回可用处理器的Java虚拟机的数量 12
         int i = Runtime.getRuntime().availableProcessors();
-        System.out.println("系统最大线程数  ： " + i);
+        log.info("系统最大线程数: {}", i);
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         // 核心线程池大小
         executor.setCorePoolSize(16);

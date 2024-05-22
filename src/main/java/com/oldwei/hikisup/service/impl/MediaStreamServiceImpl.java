@@ -9,7 +9,6 @@ import com.oldwei.hikisup.sdk.structure.*;
 import com.oldwei.hikisup.service.IMediaStreamService;
 import com.oldwei.hikisup.util.FileUtil;
 import com.oldwei.hikisup.util.GlobalCacheService;
-import com.oldwei.hikisup.util.GlobalKeyValueStore;
 import com.oldwei.hikisup.util.PropertiesUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,10 +113,13 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final IHCISUPCMS ihcisupcms;
 //    static int StreamHandle = -1;
 
-    @Async
+    @Async("taskExecutor")
     @Override
     public void saveStream(int lLoginID, int lChannel, String deviceId) {
         int sessionID = RealPlay(lLoginID, lChannel);
+        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+        stream.setSessionId(sessionID);
+        GlobalCacheService.getInstance().put(deviceId, stream);
         // 这里只预览20s, 方便demo示例代码的效果演示
 //        try {
 //            Thread.sleep(1800 * 1000);
@@ -126,6 +128,13 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 //        }
 //        log.info("listenPreviewHandle: {}", listenPreviewHandle);
 //        StopRealPlay(lLoginID, sessionID, 0, 0, hikISUPStream);
+        log.info("结束");
+    }
+
+    @Override
+    public void stopPushStream(int lLoginID, int lChannel, String deviceId) {
+        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+        StopRealPlay(lLoginID, stream.getSessionId(), 0, 0, hikISUPStream);
         log.info("结束");
     }
 
@@ -138,16 +147,17 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      */
     public int RealPlay(int lLoginID, int lChannel) {
         int sessionID = -1; //预览sessionID
-        HCISUPCMS.NET_EHOME_PREVIEWINFO_IN_V11 struPreviewInV11 = new HCISUPCMS.NET_EHOME_PREVIEWINFO_IN_V11();
+        HCISUPCMS.NET_EHOME_PREVIEWINFO_IN struPreviewInV11 = new HCISUPCMS.NET_EHOME_PREVIEWINFO_IN();
         struPreviewInV11.iChannel = lChannel; //通道号
         struPreviewInV11.dwLinkMode = 0; //0- TCP方式，1- UDP方式
         struPreviewInV11.dwStreamType = 0; //码流类型：0- 主码流，1- 子码流, 2- 第三码流
+        log.info("ip: {}, port: {}", propertiesUtil.readValue("SmsServerIP"), propertiesUtil.readValue("SmsServerPort"));
         struPreviewInV11.struStreamSever.szIP = propertiesUtil.readValue("SmsServerIP").getBytes();//流媒体服务器IP地址,公网地址
         struPreviewInV11.struStreamSever.wPort = Short.parseShort(propertiesUtil.readValue("SmsServerPort")); //流媒体服务器端口，需要跟服务器启动监听端口一致
         struPreviewInV11.write();
         //预览请求
         NET_EHOME_PREVIEWINFO_OUT struPreviewOut = new NET_EHOME_PREVIEWINFO_OUT();
-        boolean getRS = ihcisupcms.NET_ECMS_StartGetRealStreamV11(lLoginID, struPreviewInV11, struPreviewOut);
+        boolean getRS = ihcisupcms.NET_ECMS_StartGetRealStream(lLoginID, struPreviewInV11, struPreviewOut);
         //Thread.sleep(10000);
         if (!getRS) {
             log.error("NET_ECMS_StartGetRealStream failed, error code: {}", ihcisupcms.NET_ECMS_GetLastError());

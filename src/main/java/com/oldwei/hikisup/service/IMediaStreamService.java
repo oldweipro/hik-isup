@@ -8,4 +8,5 @@ public interface IMediaStreamService {
     void deleteStreamCV(int lLoginID);
 
     void saveStream(int lLoginID, int lChannel, String deviceId);
+    void stopPushStream(int lLoginID, int lChannel, String deviceId);
 }

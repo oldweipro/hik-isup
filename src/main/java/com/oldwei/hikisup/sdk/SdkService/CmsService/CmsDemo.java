@@ -188,7 +188,7 @@ public class CmsDemo {
 
                     // FIXME demo逻辑中默认只支持一台设备的功能演示，多台设备需要自行调整这里设备登录后的句柄信息
                     String trim = new String(strDevRegInfo.struRegInfo.byDeviceID).trim();
-                    System.out.println("Device online, DeviceID is:" + trim);
+                    log.info("设备上线了, 设备ID是:" + trim);
                     DeviceCache deviceCache = new DeviceCache();
                     deviceCache.setLLoginID(lUserID);
                     deviceCache.setDeviceId(trim);

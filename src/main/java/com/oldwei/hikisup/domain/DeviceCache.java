@@ -29,4 +29,8 @@ public class DeviceCache implements Serializable {
      * 通道号
      */
     private int lChannel;
+    /**
+     * sessionId
+     */
+    private int sessionId;
 }
