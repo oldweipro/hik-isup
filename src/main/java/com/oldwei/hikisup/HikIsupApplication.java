@@ -12,7 +12,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class HikIsupApplication {
 
     public static void main(String[] args) {
-        avutil.av_log_set_level(avutil.AV_LOG_QUIET);
         SpringApplication.run(HikIsupApplication.class, args);
     }
 

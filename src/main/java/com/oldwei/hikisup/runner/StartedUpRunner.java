@@ -5,7 +5,6 @@ import com.oldwei.hikisup.sdk.service.IHikISUPStream;
 import com.oldwei.hikisup.sdk.service.impl.FPREVIEW_NEWLINK_CB_FILE;
 import com.oldwei.hikisup.sdk.service.impl.FRegisterCallBack;
 import com.oldwei.hikisup.sdk.structure.NET_EHOME_CMS_LISTEN_PARAM;
-import com.oldwei.hikisup.sdk.structure.NET_EHOME_LISTEN_PREVIEW_CFG;
 import com.oldwei.hikisup.util.PropertiesUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,22 +40,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
         } else {
             String CmsListenInfo = new String(struCMSListenPara.struAddress.szIP).trim() + "_" + struCMSListenPara.struAddress.wPort;
             log.info("register service: {}, NET_ECMS_StartListen succeed!", CmsListenInfo);
-        }
-        log.info("========================= 启动SMS =========================");
-        NET_EHOME_LISTEN_PREVIEW_CFG netEhomeListenPreviewCfg = new NET_EHOME_LISTEN_PREVIEW_CFG();
-        System.arraycopy(propertiesUtil.readValue("SmsServerListenIP").getBytes(), 0, netEhomeListenPreviewCfg.struIPAdress.szIP, 0, propertiesUtil.readValue("SmsServerListenIP").length());
-        netEhomeListenPreviewCfg.struIPAdress.wPort = Short.parseShort(propertiesUtil.readValue("SmsServerListenPort")); //流媒体服务器监听端口
-        netEhomeListenPreviewCfg.fnNewLinkCB = fnNewLinkCB; //预览连接请求回调函数
-        netEhomeListenPreviewCfg.pUser = null;
-        netEhomeListenPreviewCfg.byLinkMode = 0; //0- TCP方式，1- UDP方式
-        netEhomeListenPreviewCfg.write();
-        int StreamHandle = hikISUPStream.NET_ESTREAM_StartListenPreview(netEhomeListenPreviewCfg);
-        if (StreamHandle == -1) {
-            hikISUPStream.NET_ESTREAM_Fini();
-            log.error("流媒体预览监听启动 失败, error code: {}", hikISUPStream.NET_ESTREAM_GetLastError());
-        } else {
-            String StreamListenInfo = new String(netEhomeListenPreviewCfg.struIPAdress.szIP).trim() + "_" + netEhomeListenPreviewCfg.struIPAdress.wPort;
-            log.info("{}, 流媒体服务：流媒体预览监听启动 成功", StreamListenInfo);
         }
         log.info("=========================项目启动完成=========================");
     }

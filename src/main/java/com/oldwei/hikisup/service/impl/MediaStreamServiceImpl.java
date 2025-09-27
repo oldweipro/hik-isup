@@ -2,140 +2,107 @@ package com.oldwei.hikisup.service.impl;
 
 import com.oldwei.hikisup.domain.DeviceCache;
 import com.oldwei.hikisup.sdk.SdkService.CmsService.HCISUPCMS;
-import com.oldwei.hikisup.sdk.SdkService.StreamService.StreamThread;
 import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHikISUPStream;
-import com.oldwei.hikisup.sdk.structure.*;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_LISTEN_PREVIEW_CFG;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_PREVIEWINFO_OUT;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_PREVIEW_DATA_CB_PARAM;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_PUSHSTREAM_IN;
 import com.oldwei.hikisup.service.IMediaStreamService;
-import com.oldwei.hikisup.util.FileUtil;
 import com.oldwei.hikisup.util.GlobalCacheService;
 import com.oldwei.hikisup.util.PropertiesUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.bytedeco.javacv.FFmpegFrameGrabber;
-import org.bytedeco.javacv.FFmpegFrameRecorder;
-import org.bytedeco.javacv.Frame;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MediaStreamServiceImpl implements IMediaStreamService {
-//    private final StreamDemo streamDemo;
-
-    @Override
-    @Async("taskExecutor")
-    public void openStreamCV(int lLoginID, int lChannel, String deviceId, String liveAddress) {
-//        streamDemo.startRealPlayListen_File("out.mp4");
-//        streamDemo.RealPlay(lLoginID, lChannel);
-        FFmpegFrameGrabber grabber = null;
-        FFmpegFrameRecorder recorder = null;
-        try {
-            grabber = new FFmpegFrameGrabber("out.mp4");
-            grabber.start();
-
-            // 创建FFmpegFrameRecorder对象
-            recorder = new FFmpegFrameRecorder(liveAddress, grabber.getImageWidth(), grabber.getImageHeight());
-            recorder.setVideoCodec(grabber.getVideoCodec());
-//            recorder.setFormat(grabber.getFormat());
-            recorder.setFormat("flv");
-            // set 0 禁用音频
-            recorder.setAudioChannels(grabber.getAudioChannels());
-            recorder.setAudioCodec(grabber.getAudioCodec());
-            recorder.start();
-            Frame frame;
-            int c = 0;
-            while ((frame = grabber.grab()) != null) {
-                recorder.record(frame);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (grabber != null) {
-                try {
-                    grabber.stop();
-                    grabber.release();
-                } catch (org.bytedeco.javacv.FrameGrabber.Exception e) {
-                    e.printStackTrace();
-                }
-            }
-            if (recorder != null) {
-                try {
-                    recorder.stop();
-                    recorder.release();
-                } catch (org.bytedeco.javacv.FrameRecorder.Exception e) {
-                    e.printStackTrace();
-                }
-            }
-            FileUtil.deleteFile("out.mp4");
-        }
-        System.out.println("结束预览");
-//        streamDemo.StopRealPlay(lLoginID);
-    }
-
-    @Override
-    @Async("taskExecutor")
-    public void openStream(int lLoginID, int lChannel, String deviceId) {
-        try {
-            PipedOutputStream outputStream = new PipedOutputStream();
-            PipedInputStream inputStream = new PipedInputStream(outputStream);
-            // 创建并启动读取线程
-            String liveAddress = "rtmp://192.168.2.57:15800/rtp/" + deviceId;
-            Thread readerThread = new Thread(new StreamThread(inputStream, liveAddress));
-            readerThread.start();
-//            streamDemo.startRealPlayListen_File("out.mp4");
-            // FIXME 注意这里的IChannel，不同设备类型可能不太一样
-//            streamDemo.RealPlay(lLoginID, lChannel);
-//            while (true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            System.out.println("ooooooooooooooo结束推流oooooooooooooooooo" + deviceId);
-            DeviceCache deviceCache = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-            deviceCache.setIsPushed(0);
-            GlobalCacheService.getInstance().put(deviceId, deviceCache);
-//            streamDemo.StopRealPlay(lLoginID);
-        }
-    }
-
-    @Override
-    public void deleteStreamCV(int lLoginID) {
-//        streamDemo.StopRealPlay(lLoginID);
-    }
 
     private final PropertiesUtil propertiesUtil;
     private final IHikISUPStream hikISUPStream;
     private final IHCISUPCMS ihcisupcms;
-//    static int StreamHandle = -1;
 
     @Async("taskExecutor")
     @Override
-    public void saveStream(int lLoginID, int lChannel, String deviceId) {
-        int sessionID = RealPlay(lLoginID, lChannel);
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        stream.setSessionId(sessionID);
-        GlobalCacheService.getInstance().put(deviceId, stream);
-        // 这里只预览20s, 方便demo示例代码的效果演示
-//        try {
-//            Thread.sleep(1800 * 1000);
-//        } catch (InterruptedException e) {
-//            log.error("睡眠失败");
-//        }
-//        log.info("listenPreviewHandle: {}", listenPreviewHandle);
-//        StopRealPlay(lLoginID, sessionID, 0, 0, hikISUPStream);
-        log.info("结束");
+    public void preview(int lLoginID, int lChannel, String deviceId, String randomPort) {
+        int lListenHandle = -1;
+        int sessionID = -1;
+
+
+        try {
+            lListenHandle = startPlayBackListen(randomPort);
+            if (lListenHandle == -1) {
+                log.error("启动预览监听失败");
+                return;
+            }
+
+            sessionID = RealPlay(lLoginID, lChannel, randomPort);
+            if (sessionID == -1) {
+                log.error("启动实时流失败");
+                return;
+            }
+
+            DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+            stream.setSessionId(sessionID);
+            GlobalCacheService.getInstance().put(deviceId, stream);
+            log.info("sessionID: {}, lListenHandle: {}", sessionID, lListenHandle);
+
+            // 等待30秒
+            Thread.sleep(30 * 1000);
+
+        } catch (InterruptedException e) {
+            log.error("线程被中断", e);
+            Thread.currentThread().interrupt(); // 恢复中断状态
+        } catch (Exception e) {
+            log.error("处理流时发生异常", e);
+        } finally {
+            // 确保资源被正确清理
+            if (sessionID != -1) {
+                StopRealPlay(lLoginID, sessionID, lListenHandle, lListenHandle, hikISUPStream);
+            }
+            log.info("保存流{}结束", deviceId);
+        }
     }
 
-    @Override
-    public void stopPushStream(int lLoginID, int lChannel, String deviceId) {
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        StopRealPlay(lLoginID, stream.getSessionId(), 0, 0, hikISUPStream);
-        log.info("结束");
+    private int startPlayBackListen(String randomPort) {
+        log.info("========================= 启动SMS =========================");
+        NET_EHOME_LISTEN_PREVIEW_CFG netEhomeListenPreviewCfg = new NET_EHOME_LISTEN_PREVIEW_CFG();
+        System.arraycopy(
+                propertiesUtil.readValue("SmsServerListenIP").getBytes(),
+                0,
+                netEhomeListenPreviewCfg.struIPAdress.szIP,
+                0,
+                propertiesUtil.readValue("SmsServerListenIP").length());
+        netEhomeListenPreviewCfg.struIPAdress.wPort = Short.parseShort(randomPort); //流媒体服务器监听端口
+
+        netEhomeListenPreviewCfg.fnNewLinkCB = (lLinkHandle, pNewLinkCBMsg, pUserData) -> {
+            //预览数据回调参数
+            System.out.println("[lPreviewHandle 默认值 -1]预览数据回调参数:" + lLinkHandle);
+            NET_EHOME_PREVIEW_DATA_CB_PARAM struDataCB = new NET_EHOME_PREVIEW_DATA_CB_PARAM();
+            struDataCB.fnPreviewDataCB = (iPreviewHandle, pPreviewCBMsg, pud) -> log.info("预览数据回调, iPreviewHandle: {}, dwDataLen: {}", iPreviewHandle, pPreviewCBMsg.dwDataLen);
+
+            if (!this.hikISUPStream.NET_ESTREAM_SetPreviewDataCB(lLinkHandle, struDataCB)) {
+                System.out.println("NET_ESTREAM_SetPreviewDataCB failed err:：" + this.hikISUPStream.NET_ESTREAM_GetLastError());
+                return false;
+            }
+            return true;
+        }; //预览连接请求回调函数
+        netEhomeListenPreviewCfg.pUser = null;
+        netEhomeListenPreviewCfg.byLinkMode = 0; //0- TCP方式，1- UDP方式
+        netEhomeListenPreviewCfg.write();
+        int lListenHandle = hikISUPStream.NET_ESTREAM_StartListenPreview(netEhomeListenPreviewCfg);
+        log.info("lListenHandle: {}", lListenHandle);
+        if (lListenHandle == -1) {
+            hikISUPStream.NET_ESTREAM_Fini();
+            log.error("流媒体预览监听启动失败, error code: {}", hikISUPStream.NET_ESTREAM_GetLastError());
+        } else {
+            String StreamListenInfo = new String(netEhomeListenPreviewCfg.struIPAdress.szIP).trim() + "_" + netEhomeListenPreviewCfg.struIPAdress.wPort;
+            log.info("{}, 流媒体服务：流媒体预览监听启动成功", StreamListenInfo);
+        }
+        return lListenHandle;
     }
 
     /**
@@ -145,7 +112,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * @param lChannel
      * @return sessionID 会话id
      */
-    public int RealPlay(int lLoginID, int lChannel) {
+    public int RealPlay(int lLoginID, int lChannel, String randomPort) {
         int sessionID = -1; //预览sessionID
         HCISUPCMS.NET_EHOME_PREVIEWINFO_IN struPreviewInV11 = new HCISUPCMS.NET_EHOME_PREVIEWINFO_IN();
         struPreviewInV11.iChannel = lChannel; //通道号
@@ -153,12 +120,12 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         struPreviewInV11.dwStreamType = 0; //码流类型：0- 主码流，1- 子码流, 2- 第三码流
         log.info("ip: {}, port: {}", propertiesUtil.readValue("SmsServerIP"), propertiesUtil.readValue("SmsServerPort"));
         struPreviewInV11.struStreamSever.szIP = propertiesUtil.readValue("SmsServerIP").getBytes();//流媒体服务器IP地址,公网地址
-        struPreviewInV11.struStreamSever.wPort = Short.parseShort(propertiesUtil.readValue("SmsServerPort")); //流媒体服务器端口，需要跟服务器启动监听端口一致
+        struPreviewInV11.struStreamSever.wPort = Short.parseShort(randomPort); //流媒体服务器端口，需要跟服务器启动监听端口一致
         struPreviewInV11.write();
         //预览请求
         NET_EHOME_PREVIEWINFO_OUT struPreviewOut = new NET_EHOME_PREVIEWINFO_OUT();
         boolean getRS = ihcisupcms.NET_ECMS_StartGetRealStream(lLoginID, struPreviewInV11, struPreviewOut);
-        //Thread.sleep(10000);
+        log.info("NET_ECMS_StartGetRealStream 预览请求: {}", getRS);
         if (!getRS) {
             log.error("NET_ECMS_StartGetRealStream failed, error code: {}", ihcisupcms.NET_ECMS_GetLastError());
             return sessionID;
@@ -189,20 +156,19 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * 停止预览,Stream服务停止实时流转发，CMS向设备发送停止预览请求
      */
     public void StopRealPlay(int lLoginID, int sessionID, int lPreviewHandle, int lListenHandle, IHikISUPStream hikISUPStream) {
-//        if (!hikISUPStream.NET_ESTREAM_StopPreview(lPreviewHandle)) {
-//            log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
-//            return;
-//        }
-        log.info("停止Stream的实时流转发");
+        log.info("停止获取实时流");
         if (!ihcisupcms.NET_ECMS_StopGetRealStream(lLoginID, sessionID)) {
             log.error("NET_ECMS_StopGetRealStream failed,err = {}", ihcisupcms.NET_ECMS_GetLastError());
             return;
         }
-//        log.info("CMS发送预览停止请求");
-//        if (!hikISUPStream.NET_ESTREAM_StopListenPreview(lListenHandle)) {
-//            log.error("NET_ECMS_StopGetRealStream failed,err = {}", ihcisupcms.NET_ECMS_GetLastError());
-//            return;
-//        }
-        log.info("CMS发送预览停止请求");
+        log.info("停止预览");
+        if (!hikISUPStream.NET_ESTREAM_StopPreview(lPreviewHandle)) {
+            log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
+            return;
+        }
+        log.info("停止监听预览");
+        if (!hikISUPStream.NET_ESTREAM_StopListenPreview(lListenHandle)) {
+            log.error("NET_ESTREAM_StopListenPreview failed,err = {}", ihcisupcms.NET_ECMS_GetLastError());
+        }
     }
 }

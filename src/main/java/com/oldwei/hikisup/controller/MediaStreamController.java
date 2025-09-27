@@ -2,7 +2,6 @@ package com.oldwei.hikisup.controller;
 
 import com.oldwei.hikisup.domain.DeviceCache;
 import com.oldwei.hikisup.domain.DeviceRemoteControl;
-import com.oldwei.hikisup.sdk.SdkService.CmsService.CmsDemo;
 import com.oldwei.hikisup.sdk.service.impl.CmsUtil;
 import com.oldwei.hikisup.service.IMediaStreamService;
 import com.oldwei.hikisup.util.GlobalCacheService;
@@ -30,76 +29,19 @@ public class MediaStreamController {
     private final IMediaStreamService mediaStreamService;
     private final CmsUtil cmsUtil;
 
-    @GetMapping("/pushStream")
-    public String pushStream() {
-        Map<String, Object> objectMap = GlobalCacheService.getInstance().getAll();
-        // 检查 objectMap 是否为 null 或者是否为空
-        if (objectMap != null && !objectMap.isEmpty()) {
-            // 取出一个对象
-            Map.Entry<String, Object> entry = objectMap.entrySet().iterator().next();
-            String key = entry.getKey();
-            DeviceCache stream = (DeviceCache) entry.getValue();
-            mediaStreamService.saveStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
-            // 打印 key 和 value
-            return "Key: " + key + ", Value: " + stream;
-        } else {
-            // objectMap 为空或为 null 的情况
-            return "objectMap is null or empty.";
-        }
-    }
-
-    @DeleteMapping("/pushStream/{deviceId}")
-    public String deletePushStream(@PathVariable String deviceId) {
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.deleteStreamCV(stream.getLLoginID());
-        return "oh yeah!";
-    }
-
-    @GetMapping("/openStream/{deviceId}")
-    public String openStream(@PathVariable String deviceId, @RequestParam("liveAddress") String liveAddress) {
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.openStreamCV(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId(), liveAddress);
-        return "oh yeah!";
-    }
-
     /**
      * 保存视频录像并返回视频地址
      *
      * @param deviceId
      * @return
      */
-    @GetMapping("/saveStream/{deviceId}")
-    public String saveStream(@PathVariable String deviceId) {
+    @GetMapping("/preview/{deviceId}")
+    public String preview(@PathVariable String deviceId, @RequestParam String randomPort) {
         DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.saveStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
+        mediaStreamService.preview(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId(), randomPort);
         return "oh yeah!";
     }
 
-    /**
-     * 保存视频录像并返回视频地址
-     *
-     * @param deviceId
-     * @return
-     */
-    @GetMapping("/pushStream/{deviceId}")
-    public String pushStream(@PathVariable String deviceId) {
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.saveStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
-        return "oh yeah!";
-    }
-
-    /**
-     * 保存视频录像并返回视频地址
-     *
-     * @param deviceId
-     * @return
-     */
-    @GetMapping("/stopPushStream/{deviceId}")
-    public String stopPushStream(@PathVariable String deviceId) {
-        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.stopPushStream(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
-        return "oh yeah!";
-    }
 
     @GetMapping("/video")
     public ResponseEntity<Resource> getVideo() throws IOException {

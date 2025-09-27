@@ -1,12 +1,13 @@
 package com.oldwei.hikisup.service;
 
 public interface IMediaStreamService {
-
-    void openStream(int lLoginID, int lChannel, String deviceId);
-    void openStreamCV(int lLoginID, int lChannel, String deviceId, String liveAddress);
-
-    void deleteStreamCV(int lLoginID);
-
-    void saveStream(int lLoginID, int lChannel, String deviceId);
-    void stopPushStream(int lLoginID, int lChannel, String deviceId);
+    /**
+     * 预览视频
+     *
+     * @param lLoginID
+     * @param lChannel
+     * @param deviceId
+     * @param randomPort
+     */
+    void preview(int lLoginID, int lChannel, String deviceId, String randomPort);
 }

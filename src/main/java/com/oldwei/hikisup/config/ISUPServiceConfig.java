@@ -37,6 +37,7 @@ public class ISUPServiceConfig {
      */
     @Bean
     public IHCISUPCMS ihcisupcms() {
+        log.info("*************** 初始化 HIK ISUP CMS SDK ***************");
         IHCISUPCMS ihcisupcms = null;
         synchronized (IHCISUPCMS.class) {
             String strDllPath = "";
@@ -55,6 +56,7 @@ public class ISUPServiceConfig {
         assert ihcisupcms != null;
         // cMS_Init
         if (OsSelect.isWindows()) {
+            log.info("*************** 初始化 Windows HIK ISUP CMS SDK ***************");
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
             String strPathCrypto = System.getProperty("user.dir") + "\\sdk\\windows\\libeay32.dll"; //Linux版本是libcrypto.so库文件的路径
             System.arraycopy(strPathCrypto.getBytes(), 0, ptrByteArrayCrypto.byValue, 0, strPathCrypto.length());
@@ -70,7 +72,7 @@ public class ISUPServiceConfig {
             //注册服务初始化
             boolean binit = ihcisupcms.NET_ECMS_Init();
             if (binit) {
-                log.info("初始化成功");
+                log.info("Windows 初始化成功");
             }
             //设置HCAapSDKCom组件库文件夹所在路径
             BYTE_ARRAY ptrByteArrayCom = new BYTE_ARRAY(256);
@@ -80,6 +82,7 @@ public class ISUPServiceConfig {
             ihcisupcms.NET_ECMS_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
 
         } else if (OsSelect.isLinux()) {
+            log.info("*************** 初始化 Linux HIK ISUP CMS SDK ***************");
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
             String strPathCrypto = System.getProperty("user.dir") + "/sdk/linux/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
             System.arraycopy(strPathCrypto.getBytes(), 0, ptrByteArrayCrypto.byValue, 0, strPathCrypto.length());
@@ -102,12 +105,13 @@ public class ISUPServiceConfig {
             ihcisupcms.NET_ECMS_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
 
         }
-        log.info("+++++++++++++ 初始化 CMS +++++++++++++++++");
+        log.info("*************** 初始化 HIK ISUP CMS SDK 完毕 ***************");
         return ihcisupcms;
     }
 
     @Bean
     public IHikISUPStream hikISUPStream() {
+        log.info("*************** 初始化 HIK ISUP STREAM SDK ***************");
         IHikISUPStream hikISUPStream = null;
         synchronized (IHikISUPStream.class) {
             String strDllPath = "";
@@ -123,6 +127,7 @@ public class ISUPServiceConfig {
         }
         assert hikISUPStream != null;
         if (OsSelect.isWindows()) {
+            log.info("*************** 初始化 Windows HIK ISUP STREAM SDK ***************");
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
             String strPathCrypto = System.getProperty("user.dir") + "\\sdk\\windows\\libeay32.dll"; //Linux版本是libcrypto.so库文件的路径
             System.arraycopy(strPathCrypto.getBytes(), 0, ptrByteArrayCrypto.byValue, 0, strPathCrypto.length());
@@ -148,6 +153,7 @@ public class ISUPServiceConfig {
                 log.error("NET_ESTREAM_SetSDKLocalCfg 5 failed, error: {}", hikISUPStream.NET_ESTREAM_GetLastError());
             }
         } else if (OsSelect.isLinux()) {
+            log.info("*************** 初始化 Linux HIK ISUP STREAM SDK ***************");
             //设置libcrypto.so所在路径
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
             String strPathCrypto = System.getProperty("user.dir") + "/sdk/linux/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
@@ -174,7 +180,7 @@ public class ISUPServiceConfig {
                 log.error("NET_ESTREAM_SetSDKLocalCfg 5 failed, error: {}", hikISUPStream.NET_ESTREAM_GetLastError());
             }
         }
-        log.info("+++++++++++++ 初始化 流媒体 +++++++++++++++++");
+        log.info("*************** 初始化 HIK ISUP STREAM SDK 完毕 ***************");
         return hikISUPStream;
     }
 }
