@@ -36,10 +36,17 @@ public class MediaStreamController {
      * @return
      */
     @GetMapping("/preview/{deviceId}")
-    public String preview(@PathVariable String deviceId, @RequestParam String randomPort) {
+    public String startPreview(@PathVariable String deviceId, @RequestParam String randomPort) {
         DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
         mediaStreamService.preview(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId(), randomPort);
-        return "oh yeah!";
+        return "oh yeah start!";
+    }
+
+    @DeleteMapping("/preview/{deviceId}")
+    public String stopPreview(@PathVariable String deviceId) {
+        DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
+        mediaStreamService.stopPreview(stream.getDeviceId(), stream.getLLoginID());
+        return "oh yeah stop!";
     }
 
 

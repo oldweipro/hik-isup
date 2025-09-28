@@ -14,6 +14,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 
 @Slf4j
 @Service
@@ -24,11 +27,16 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final IHikISUPStream hikISUPStream;
     private final IHCISUPCMS ihcisupcms;
 
+    // 每个设备一个 latch，用于控制阻塞/停止
+    private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
+
     @Async("taskExecutor")
     @Override
     public void preview(int lLoginID, int lChannel, String deviceId, String randomPort) {
         int lListenHandle = -1;
         int sessionID = -1;
+        CountDownLatch latch = new CountDownLatch(1);
+        latchMap.put(deviceId, latch);
 
 
         try {
@@ -49,8 +57,8 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             GlobalCacheService.getInstance().put(deviceId, stream);
             log.info("sessionID: {}, lListenHandle: {}", sessionID, lListenHandle);
 
-            // 等待30秒
-            Thread.sleep(600 * 1000);
+            // 阻塞，直到 stopPreview() 调用 latch.countDown()
+            latch.await();
 
         } catch (InterruptedException e) {
             log.error("线程被中断", e);
@@ -62,7 +70,16 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             if (sessionID != -1) {
                 StopRealPlay(lLoginID, sessionID, lListenHandle, lListenHandle, hikISUPStream);
             }
+            latchMap.remove(deviceId);
             log.info("保存流{}结束", deviceId);
+        }
+    }
+
+    public void stopPreview(String deviceId, int lLoginID) {
+        CountDownLatch latch = latchMap.get(deviceId);
+        if (latch != null) {
+            latch.countDown(); // 唤醒 preview
+            log.info("停止预览: {}", deviceId);
         }
     }
 

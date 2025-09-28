@@ -10,4 +10,6 @@ public interface IMediaStreamService {
      * @param randomPort
      */
     void preview(int lLoginID, int lChannel, String deviceId, String randomPort);
+
+    void stopPreview(String deviceId, int lLoginID);
 }
