@@ -9,7 +9,6 @@ RUN apt-get update && \
 WORKDIR /opt/hik-isup
 
 COPY sdk ./sdk
-COPY config.properties .
 COPY target/hik-isup-0.0.1.jar .
 
 # 暴露端口

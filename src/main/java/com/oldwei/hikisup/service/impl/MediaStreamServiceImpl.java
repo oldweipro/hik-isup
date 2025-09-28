@@ -1,27 +1,26 @@
 package com.oldwei.hikisup.service.impl;
 
+import com.oldwei.hikisup.config.HikIsupProperties;
 import com.oldwei.hikisup.domain.DeviceCache;
-import com.oldwei.hikisup.sdk.SdkService.CmsService.HCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHikISUPStream;
-import com.oldwei.hikisup.sdk.structure.NET_EHOME_LISTEN_PREVIEW_CFG;
-import com.oldwei.hikisup.sdk.structure.NET_EHOME_PREVIEWINFO_OUT;
-import com.oldwei.hikisup.sdk.structure.NET_EHOME_PREVIEW_DATA_CB_PARAM;
-import com.oldwei.hikisup.sdk.structure.NET_EHOME_PUSHSTREAM_IN;
+import com.oldwei.hikisup.sdk.structure.*;
 import com.oldwei.hikisup.service.IMediaStreamService;
+import com.oldwei.hikisup.util.FileUtil;
 import com.oldwei.hikisup.util.GlobalCacheService;
-import com.oldwei.hikisup.util.PropertiesUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.nio.ByteBuffer;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MediaStreamServiceImpl implements IMediaStreamService {
 
-    private final PropertiesUtil propertiesUtil;
+    private final HikIsupProperties hikIsupProperties;
     private final IHikISUPStream hikISUPStream;
     private final IHCISUPCMS ihcisupcms;
 
@@ -51,7 +50,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             log.info("sessionID: {}, lListenHandle: {}", sessionID, lListenHandle);
 
             // 等待30秒
-            Thread.sleep(30 * 1000);
+            Thread.sleep(600 * 1000);
 
         } catch (InterruptedException e) {
             log.error("线程被中断", e);
@@ -70,19 +69,22 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private int startPlayBackListen(String randomPort) {
         log.info("========================= 启动SMS =========================");
         NET_EHOME_LISTEN_PREVIEW_CFG netEhomeListenPreviewCfg = new NET_EHOME_LISTEN_PREVIEW_CFG();
-        System.arraycopy(
-                propertiesUtil.readValue("SmsServerListenIP").getBytes(),
-                0,
-                netEhomeListenPreviewCfg.struIPAdress.szIP,
-                0,
-                propertiesUtil.readValue("SmsServerListenIP").length());
+        System.arraycopy(hikIsupProperties.getSmsServer().getListenIp().getBytes(), 0, netEhomeListenPreviewCfg.struIPAdress.szIP, 0, hikIsupProperties.getSmsServer().getListenIp().length());
         netEhomeListenPreviewCfg.struIPAdress.wPort = Short.parseShort(randomPort); //流媒体服务器监听端口
 
         netEhomeListenPreviewCfg.fnNewLinkCB = (lLinkHandle, pNewLinkCBMsg, pUserData) -> {
             //预览数据回调参数
             System.out.println("[lPreviewHandle 默认值 -1]预览数据回调参数:" + lLinkHandle);
             NET_EHOME_PREVIEW_DATA_CB_PARAM struDataCB = new NET_EHOME_PREVIEW_DATA_CB_PARAM();
-            struDataCB.fnPreviewDataCB = (iPreviewHandle, pPreviewCBMsg, pud) -> log.info("预览数据回调, iPreviewHandle: {}, dwDataLen: {}", iPreviewHandle, pPreviewCBMsg.dwDataLen);
+            struDataCB.fnPreviewDataCB = (iPreviewHandle, pPreviewCBMsg, pud) -> {
+//                log.info("预览数据回调, iPreviewHandle: {}, dwDataLen: {}", iPreviewHandle, pPreviewCBMsg.dwDataLen);
+                long offset = 0;
+                ByteBuffer buffers = pPreviewCBMsg.pRecvdata.getByteBuffer(offset, pPreviewCBMsg.dwDataLen);
+                byte[] bytes = new byte[pPreviewCBMsg.dwDataLen];
+                buffers.rewind();
+                buffers.get(bytes);
+                FileUtil.writeFile("./output/preview.mp4", bytes);
+            };
 
             if (!this.hikISUPStream.NET_ESTREAM_SetPreviewDataCB(lLinkHandle, struDataCB)) {
                 System.out.println("NET_ESTREAM_SetPreviewDataCB failed err:：" + this.hikISUPStream.NET_ESTREAM_GetLastError());
@@ -114,17 +116,17 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      */
     public int RealPlay(int lLoginID, int lChannel, String randomPort) {
         int sessionID = -1; //预览sessionID
-        HCISUPCMS.NET_EHOME_PREVIEWINFO_IN struPreviewInV11 = new HCISUPCMS.NET_EHOME_PREVIEWINFO_IN();
+        NET_EHOME_PREVIEWINFO_IN_V11 struPreviewInV11 = new NET_EHOME_PREVIEWINFO_IN_V11();
         struPreviewInV11.iChannel = lChannel; //通道号
         struPreviewInV11.dwLinkMode = 0; //0- TCP方式，1- UDP方式
         struPreviewInV11.dwStreamType = 0; //码流类型：0- 主码流，1- 子码流, 2- 第三码流
-        log.info("ip: {}, port: {}", propertiesUtil.readValue("SmsServerIP"), propertiesUtil.readValue("SmsServerPort"));
-        struPreviewInV11.struStreamSever.szIP = propertiesUtil.readValue("SmsServerIP").getBytes();//流媒体服务器IP地址,公网地址
+        log.info("ip: {}, port: {}", hikIsupProperties.getSmsServer().getIp(), hikIsupProperties.getSmsServer().getPort());
+        struPreviewInV11.struStreamSever.szIP = hikIsupProperties.getSmsServer().getIp().getBytes();//流媒体服务器IP地址,公网地址
         struPreviewInV11.struStreamSever.wPort = Short.parseShort(randomPort); //流媒体服务器端口，需要跟服务器启动监听端口一致
         struPreviewInV11.write();
         //预览请求
         NET_EHOME_PREVIEWINFO_OUT struPreviewOut = new NET_EHOME_PREVIEWINFO_OUT();
-        boolean getRS = ihcisupcms.NET_ECMS_StartGetRealStream(lLoginID, struPreviewInV11, struPreviewOut);
+        boolean getRS = ihcisupcms.NET_ECMS_StartGetRealStreamV11(lLoginID, struPreviewInV11, struPreviewOut);
         log.info("NET_ECMS_StartGetRealStream 预览请求: {}", getRS);
         if (!getRS) {
             log.error("NET_ECMS_StartGetRealStream failed, error code: {}", ihcisupcms.NET_ECMS_GetLastError());
@@ -139,7 +141,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         struPushInfoIn.dwSize = struPushInfoIn.size();
         struPushInfoIn.lSessionID = sessionID;
         struPushInfoIn.write();
-        HCISUPCMS.NET_EHOME_PUSHSTREAM_OUT struPushInfoOut = new HCISUPCMS.NET_EHOME_PUSHSTREAM_OUT();
+        NET_EHOME_PUSHSTREAM_OUT struPushInfoOut = new NET_EHOME_PUSHSTREAM_OUT();
         struPushInfoOut.read();
         struPushInfoOut.dwSize = struPushInfoOut.size();
         struPushInfoOut.write();

@@ -19,7 +19,7 @@ import java.nio.ByteBuffer;
 @Component
 @RequiredArgsConstructor
 public class FPREVIEW_DATA_CB_FILE implements PREVIEW_DATA_CB {
-    private final File previewFile = new File(System.getProperty("user.dir") + "\\outputFiles\\previewVideo.mp4");
+    private final File previewFile = new File(System.getProperty("user.dir") + "\\output\\previewVideo.mp4");
 
     // 实时流回调函数
     public void invoke(int iPreviewHandle, NET_EHOME_PREVIEW_CB_MSG pPreviewCBMsg, Pointer pUserData) {

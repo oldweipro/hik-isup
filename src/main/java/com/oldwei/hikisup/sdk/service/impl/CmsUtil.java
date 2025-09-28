@@ -1,8 +1,9 @@
 package com.oldwei.hikisup.sdk.service.impl;
 
 import com.oldwei.hikisup.domain.DeviceRemoteControl;
-import com.oldwei.hikisup.sdk.SdkService.CmsService.HCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
+import com.oldwei.hikisup.sdk.structure.BYTE_ARRAY;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_XML_REMOTE_CTRL_PARAM;
 import com.oldwei.hikisup.util.XmlUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CmsUtil {
     private final IHCISUPCMS ihcisupcms;
+
     /**
      * NET_ECMS_XMLRemoteControl接口示例 查找并获取设备工作状态。
      * 包含多个参数的字符串，包括通道号，录像状态（0-停止，1-开始），视频信号状态（0-正常，1-视频丢
@@ -21,7 +23,7 @@ public class CmsUtil {
      */
     public DeviceRemoteControl CMS_XMLRemoteControl(int lLoginID) {
         //远程控制输入参数
-        HCISUPCMS.NET_EHOME_XML_REMOTE_CTRL_PARAM struRemoteCtrl = new HCISUPCMS.NET_EHOME_XML_REMOTE_CTRL_PARAM();
+        NET_EHOME_XML_REMOTE_CTRL_PARAM struRemoteCtrl = new NET_EHOME_XML_REMOTE_CTRL_PARAM();
         struRemoteCtrl.read();
         struRemoteCtrl.dwSize = struRemoteCtrl.size();
         struRemoteCtrl.dwRecvTimeOut = 5000; //接收超时时间
@@ -55,18 +57,18 @@ public class CmsUtil {
 //                "    </Params>\n" +
 //                "</PPVSPMessage>";
 
-        HCISUPCMS.BYTE_ARRAY m_struInbuffer = new HCISUPCMS.BYTE_ARRAY(inputCfg.length() + 1);
+        BYTE_ARRAY m_struInbuffer = new BYTE_ARRAY(inputCfg.length() + 1);
         System.arraycopy(inputCfg.getBytes(), 0, m_struInbuffer.byValue, 0, inputCfg.length());
         m_struInbuffer.write();
         struRemoteCtrl.lpInbuffer = m_struInbuffer.getPointer();
         struRemoteCtrl.dwInBufferSize = m_struInbuffer.size();
 
         //输出参数
-        HCISUPCMS.BYTE_ARRAY m_struOutbuffer = new HCISUPCMS.BYTE_ARRAY(5 * 1024);
+        BYTE_ARRAY m_struOutbuffer = new BYTE_ARRAY(5 * 1024);
         struRemoteCtrl.lpOutBuffer = m_struOutbuffer.getPointer();
         struRemoteCtrl.dwOutBufferSize = m_struOutbuffer.size();
         //输出状态信息
-        HCISUPCMS.BYTE_ARRAY m_struStatusBuffer = new HCISUPCMS.BYTE_ARRAY(2 * 1024);
+        BYTE_ARRAY m_struStatusBuffer = new BYTE_ARRAY(2 * 1024);
         struRemoteCtrl.lpStatusBuffer = m_struStatusBuffer.getPointer();
         struRemoteCtrl.dwStatusBufferSize = m_struStatusBuffer.size();
 

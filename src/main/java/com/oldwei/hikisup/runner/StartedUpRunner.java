@@ -1,11 +1,11 @@
 package com.oldwei.hikisup.runner;
 
+import com.oldwei.hikisup.config.HikIsupProperties;
 import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHikISUPStream;
 import com.oldwei.hikisup.sdk.service.impl.FPREVIEW_NEWLINK_CB_FILE;
 import com.oldwei.hikisup.sdk.service.impl.FRegisterCallBack;
 import com.oldwei.hikisup.sdk.structure.NET_EHOME_CMS_LISTEN_PARAM;
-import com.oldwei.hikisup.util.PropertiesUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class StartedUpRunner implements ApplicationRunner, DisposableBean {
 
-    private final PropertiesUtil propertiesUtil;
+    private final HikIsupProperties hikIsupProperties;
     private final IHCISUPCMS ihcisupcms;
     private final IHikISUPStream hikISUPStream;
     private final FRegisterCallBack fRegisterCallBack;
@@ -28,8 +28,8 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
     public void run(ApplicationArguments args) throws Exception {
         log.info("========================= 启动CMS =========================");
         NET_EHOME_CMS_LISTEN_PARAM struCMSListenPara = new NET_EHOME_CMS_LISTEN_PARAM();
-        System.arraycopy(propertiesUtil.readValue("CmsServerIP").getBytes(), 0, struCMSListenPara.struAddress.szIP, 0, propertiesUtil.readValue("CmsServerIP").length());
-        struCMSListenPara.struAddress.wPort = Short.parseShort(propertiesUtil.readValue("CmsServerPort"));
+        System.arraycopy(hikIsupProperties.getCmsServer().getIp().getBytes(), 0, struCMSListenPara.struAddress.szIP, 0, hikIsupProperties.getCmsServer().getIp().length());
+        struCMSListenPara.struAddress.wPort = Short.parseShort(hikIsupProperties.getCmsServer().getPort());
         struCMSListenPara.fnCB = fRegisterCallBack;
         struCMSListenPara.write();
         //启动监听，接收设备注册信息

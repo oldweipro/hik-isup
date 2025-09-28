@@ -4,35 +4,20 @@ import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHikISUPStream;
 import com.oldwei.hikisup.sdk.structure.BYTE_ARRAY;
 import com.oldwei.hikisup.util.OsSelect;
-import com.oldwei.hikisup.util.PropertiesUtil;
 import com.sun.jna.Native;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.IOException;
-
 @Slf4j
 @Configuration
 @RequiredArgsConstructor
 public class ISUPServiceConfig {
 
-    @Bean
-    public PropertiesUtil propertiesUtil() {
-        String configPath = "./config.properties";
-        PropertiesUtil propertiesUtil  = null;
-        try {
-            propertiesUtil = new PropertiesUtil(configPath);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        log.info("+++++++++++++ 初始化 配置文件 +++++++++++++++++");
-        return propertiesUtil;
-    }
-
     /**
      * 在这里实例化sdk连接
+     *
      * @return
      */
     @Bean
@@ -47,7 +32,7 @@ public class ISUPServiceConfig {
                     strDllPath = System.getProperty("user.dir") + "\\sdk\\windows\\HCISUPCMS.dll";
                 else if (OsSelect.isLinux())
                     //Linux系统加载库路径(路径不要带中文)
-                    strDllPath = System.getProperty("user.dir")+"/sdk/linux/libHCISUPCMS.so";
+                    strDllPath = System.getProperty("user.dir") + "/sdk/linux/libHCISUPCMS.so";
                 ihcisupcms = (IHCISUPCMS) Native.loadLibrary(strDllPath, IHCISUPCMS.class);
             } catch (Exception ex) {
                 System.out.println("loadLibrary: " + strDllPath + " Error: " + ex.getMessage());

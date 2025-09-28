@@ -1,10 +1,9 @@
 package com.oldwei.hikisup.util;
 
-import com.oldwei.hikisup.sdk.SdkService.CmsService.HCISUPCMS;
+import com.oldwei.hikisup.sdk.structure.BYTE_ARRAY;
+import com.oldwei.hikisup.sdk.structure.NET_EHOME_PTXML_PARAM;
 
 import java.io.UnsupportedEncodingException;
-
-import static com.oldwei.hikisup.sdk.SdkService.CmsService.CmsDemo.hCEhomeCMS;
 
 /**
  * @author zhengxiaohui
@@ -26,11 +25,11 @@ public class SdkFunctionWrapUtil {
             throw new RuntimeException("示例代码中修改的透传的请求地址为null");
         }
 
-        HCISUPCMS.NET_EHOME_PTXML_PARAM m_struParam = new HCISUPCMS.NET_EHOME_PTXML_PARAM();
+        NET_EHOME_PTXML_PARAM m_struParam = new NET_EHOME_PTXML_PARAM();
         m_struParam.read();
         //透传URL，不同功能对应不同的URL，完整协议报文说明需要参考ISAPI协议文档
         String urlInBuffer = reqUrl;
-        HCISUPCMS.BYTE_ARRAY ptrurlInBuffer = new HCISUPCMS.BYTE_ARRAY(urlInBuffer.length() + 1);
+        BYTE_ARRAY ptrurlInBuffer = new BYTE_ARRAY(urlInBuffer.length() + 1);
         System.arraycopy(urlInBuffer.getBytes(), 0, ptrurlInBuffer.byValue, 0, urlInBuffer.length());
         ptrurlInBuffer.write();
         m_struParam.pRequestUrl = ptrurlInBuffer.getPointer();
@@ -45,7 +44,7 @@ public class SdkFunctionWrapUtil {
                 throw new RuntimeException(e);
             }
             int iInBufLen = byInbuffer.length;
-            HCISUPCMS.BYTE_ARRAY ptrInBuffer = new HCISUPCMS.BYTE_ARRAY(iInBufLen);
+            BYTE_ARRAY ptrInBuffer = new BYTE_ARRAY(iInBufLen);
             ptrInBuffer.read();
             System.arraycopy(byInbuffer, 0, ptrInBuffer.byValue, 0, iInBufLen);
             ptrInBuffer.write();
@@ -58,19 +57,19 @@ public class SdkFunctionWrapUtil {
 
         // 输出参数，分配的内存用于存储返回的数据，需要大于等于实际内容大小
         int iOutSize2 = 2 * 1024 * 1024;
-        HCISUPCMS.BYTE_ARRAY ptrOutByte2 = new HCISUPCMS.BYTE_ARRAY(iOutSize2);
+        BYTE_ARRAY ptrOutByte2 = new BYTE_ARRAY(iOutSize2);
         m_struParam.pOutBuffer = ptrOutByte2.getPointer();
         m_struParam.dwOutSize = iOutSize2;
         m_struParam.dwRecvTimeOut = 5000; // 接收超时时间，单位毫秒
         m_struParam.write();
-        if (!hCEhomeCMS.NET_ECMS_ISAPIPassThrough(loginID, m_struParam)) {
-            System.out.println("NET_ECMS_ISAPIPassThrough failed, error：" + hCEhomeCMS.NET_ECMS_GetLastError());
-            return;
-        } else {
-            m_struParam.read();
-            ptrOutByte2.read();
-            System.out.println("\nNET_ECMS_ISAPIPassThrough succeed\n" + "输出报文:\n" + new String(ptrOutByte2.byValue).trim());
-        }
+//        if (!NET_ECMS_ISAPIPassThrough(loginID, m_struParam)) {
+//            System.out.println("NET_ECMS_ISAPIPassThrough failed, error：" + NET_ECMS_GetLastError());
+//            return;
+//        } else {
+//            m_struParam.read();
+//            ptrOutByte2.read();
+//            System.out.println("\nNET_ECMS_ISAPIPassThrough succeed\n" + "输出报文:\n" + new String(ptrOutByte2.byValue).trim());
+//        }
         return;
     }
 
