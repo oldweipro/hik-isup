@@ -6,8 +6,8 @@ import com.oldwei.hikisup.sdk.service.IHCISUPCMS;
 import com.oldwei.hikisup.sdk.service.IHikISUPStream;
 import com.oldwei.hikisup.sdk.structure.*;
 import com.oldwei.hikisup.service.IMediaStreamService;
-import com.oldwei.hikisup.util.FileUtil;
 import com.oldwei.hikisup.util.GlobalCacheService;
+import com.oldwei.hikisup.util.WebFluxHttpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -17,6 +17,9 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+
+import static com.oldwei.hikisup.sdk.service.constant.EHOME_REGISTER_TYPE.NET_DVR_STREAMDATA;
+import static com.oldwei.hikisup.sdk.service.constant.EHOME_REGISTER_TYPE.NET_DVR_SYSHEAD;
 
 @Slf4j
 @Service
@@ -30,23 +33,22 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     // 每个设备一个 latch，用于控制阻塞/停止
     private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
 
-    @Async("taskExecutor")
+    @Async("streamExecutor")
     @Override
-    public void preview(int lLoginID, int lChannel, String deviceId, String randomPort) {
+    public void preview(int lLoginID, int lChannel, String deviceId) {
         int lListenHandle = -1;
         int sessionID = -1;
         CountDownLatch latch = new CountDownLatch(1);
         latchMap.put(deviceId, latch);
 
-
         try {
-            lListenHandle = startPlayBackListen(randomPort);
+            lListenHandle = startPlayBackListen();
             if (lListenHandle == -1) {
                 log.error("启动预览监听失败");
                 return;
             }
 
-            sessionID = RealPlay(lLoginID, lChannel, randomPort);
+            sessionID = RealPlay(lLoginID, lChannel);
             if (sessionID == -1) {
                 log.error("启动实时流失败");
                 return;
@@ -83,26 +85,40 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         }
     }
 
-    private int startPlayBackListen(String randomPort) {
+    private int startPlayBackListen() {
         log.info("========================= 启动SMS =========================");
         NET_EHOME_LISTEN_PREVIEW_CFG netEhomeListenPreviewCfg = new NET_EHOME_LISTEN_PREVIEW_CFG();
         System.arraycopy(hikIsupProperties.getSmsServer().getListenIp().getBytes(), 0, netEhomeListenPreviewCfg.struIPAdress.szIP, 0, hikIsupProperties.getSmsServer().getListenIp().length());
-        netEhomeListenPreviewCfg.struIPAdress.wPort = Short.parseShort(randomPort); //流媒体服务器监听端口
+        netEhomeListenPreviewCfg.struIPAdress.wPort = Short.parseShort(hikIsupProperties.getSmsServer().getListenPort()); //流媒体服务器监听端口
 
         netEhomeListenPreviewCfg.fnNewLinkCB = (lLinkHandle, pNewLinkCBMsg, pUserData) -> {
             //预览数据回调参数
             System.out.println("[lPreviewHandle 默认值 -1]预览数据回调参数:" + lLinkHandle);
             NET_EHOME_PREVIEW_DATA_CB_PARAM struDataCB = new NET_EHOME_PREVIEW_DATA_CB_PARAM();
             struDataCB.fnPreviewDataCB = (iPreviewHandle, pPreviewCBMsg, pud) -> {
-//                log.info("预览数据回调, iPreviewHandle: {}, dwDataLen: {}", iPreviewHandle, pPreviewCBMsg.dwDataLen);
-                long offset = 0;
-                ByteBuffer buffers = pPreviewCBMsg.pRecvdata.getByteBuffer(offset, pPreviewCBMsg.dwDataLen);
-                byte[] bytes = new byte[pPreviewCBMsg.dwDataLen];
-                buffers.rewind();
-                buffers.get(bytes);
-                FileUtil.writeFile("./output/preview.mp4", bytes);
-            };
+                switch (pPreviewCBMsg.byDataType) {
+                    case NET_DVR_SYSHEAD: {  //系统头数据
+                        log.info("系统头数据");
+                        ByteBuffer buffers = pPreviewCBMsg.pRecvdata.getByteBuffer(0, pPreviewCBMsg.dwDataLen);
+                        byte[] bytes = new byte[pPreviewCBMsg.dwDataLen];
+                        buffers.rewind();
+                        buffers.get(bytes);
+//                        String deviceList = WebFluxHttpUtil.postBytes("http://192.168.2.30:9888/event/receive", bytes, String.class);
+//                        System.out.println(deviceList);
+                    }
+                    case NET_DVR_STREAMDATA: {
+//                        log.info("码流数据预览数据回调, iPreviewHandle: {}, dwDataLen: {}", iPreviewHandle, pPreviewCBMsg.dwDataLen);
+                        long offset = 0;
+                        ByteBuffer buffers = pPreviewCBMsg.pRecvdata.getByteBuffer(offset, pPreviewCBMsg.dwDataLen);
+                        byte[] bytes = new byte[pPreviewCBMsg.dwDataLen];
+                        buffers.rewind();
+                        buffers.get(bytes);
+                        String deviceList = WebFluxHttpUtil.postBytes("http://192.168.2.30:9888/event/receive", bytes, String.class);
+//                        System.out.println(deviceList);
+                    }
+                }
 
+            };
             if (!this.hikISUPStream.NET_ESTREAM_SetPreviewDataCB(lLinkHandle, struDataCB)) {
                 System.out.println("NET_ESTREAM_SetPreviewDataCB failed err:：" + this.hikISUPStream.NET_ESTREAM_GetLastError());
                 return false;
@@ -131,7 +147,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * @param lChannel
      * @return sessionID 会话id
      */
-    public int RealPlay(int lLoginID, int lChannel, String randomPort) {
+    public int RealPlay(int lLoginID, int lChannel) {
         int sessionID = -1; //预览sessionID
         NET_EHOME_PREVIEWINFO_IN_V11 struPreviewInV11 = new NET_EHOME_PREVIEWINFO_IN_V11();
         struPreviewInV11.iChannel = lChannel; //通道号
@@ -139,7 +155,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         struPreviewInV11.dwStreamType = 0; //码流类型：0- 主码流，1- 子码流, 2- 第三码流
         log.info("ip: {}, port: {}", hikIsupProperties.getSmsServer().getIp(), hikIsupProperties.getSmsServer().getPort());
         struPreviewInV11.struStreamSever.szIP = hikIsupProperties.getSmsServer().getIp().getBytes();//流媒体服务器IP地址,公网地址
-        struPreviewInV11.struStreamSever.wPort = Short.parseShort(randomPort); //流媒体服务器端口，需要跟服务器启动监听端口一致
+        struPreviewInV11.struStreamSever.wPort = Short.parseShort(hikIsupProperties.getSmsServer().getPort()); //流媒体服务器端口，需要跟服务器启动监听端口一致
         struPreviewInV11.write();
         //预览请求
         NET_EHOME_PREVIEWINFO_OUT struPreviewOut = new NET_EHOME_PREVIEWINFO_OUT();
@@ -174,7 +190,8 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     /**
      * 停止预览,Stream服务停止实时流转发，CMS向设备发送停止预览请求
      */
-    public void StopRealPlay(int lLoginID, int sessionID, int lPreviewHandle, int lListenHandle, IHikISUPStream hikISUPStream) {
+    public void StopRealPlay(int lLoginID, int sessionID, int lPreviewHandle, int lListenHandle, IHikISUPStream
+            hikISUPStream) {
         log.info("停止获取实时流");
         if (!ihcisupcms.NET_ECMS_StopGetRealStream(lLoginID, sessionID)) {
             log.error("NET_ECMS_StopGetRealStream failed,err = {}", ihcisupcms.NET_ECMS_GetLastError());

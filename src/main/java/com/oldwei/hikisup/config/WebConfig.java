@@ -1,16 +1,20 @@
 package com.oldwei.hikisup.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.reactive.config.WebFluxConfigurer;
+import org.springframework.web.reactive.function.server.RouterFunction;
+import org.springframework.web.reactive.function.server.RouterFunctions;
+import org.springframework.web.reactive.function.server.ServerResponse;
+
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 
 @Configuration
-public class WebConfig implements WebMvcConfigurer {
+public class WebConfig implements WebFluxConfigurer {
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 配置反向代理的静态资源目录
-        registry.addResourceHandler("/video/**")
-                .addResourceLocations("file:C:\\Users\\klf\\IdeaProjects\\hik-isup\\");
+    @Bean
+    public RouterFunction<ServerResponse> staticResourceRouter() {
+        return RouterFunctions.route(GET("/"), request ->
+                ServerResponse.temporaryRedirect(java.net.URI.create("/chat.html")).build());
     }
 }

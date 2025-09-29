@@ -36,9 +36,9 @@ public class MediaStreamController {
      * @return
      */
     @GetMapping("/preview/{deviceId}")
-    public String startPreview(@PathVariable String deviceId, @RequestParam String randomPort) {
+    public String startPreview(@PathVariable String deviceId) {
         DeviceCache stream = (DeviceCache) GlobalCacheService.getInstance().get(deviceId);
-        mediaStreamService.preview(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId(), randomPort);
+        mediaStreamService.preview(stream.getLLoginID(), stream.getLChannel(), stream.getDeviceId());
         return "oh yeah start!";
     }
 

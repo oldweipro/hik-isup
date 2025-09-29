@@ -73,4 +73,15 @@ public class FileUtil {
             e.printStackTrace();
         }
     }
+
+    public static void testAsync(byte[] bytes) {
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+                System.out.println("Async task completed!" + bytes.length);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
 }
