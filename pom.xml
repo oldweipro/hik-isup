@@ -42,7 +42,42 @@
             <artifactId>javacv-platform</artifactId>
             <version>1.5.10</version>
         </dependency>
-
+        <!-- websocket -->
+        <dependency>
+            <groupId>org.java-websocket</groupId>
+            <artifactId>Java-WebSocket</artifactId>
+            <version>1.5.3</version>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>dynamic-datasource-spring-boot3-starter</artifactId>
+            <version>4.3.1</version>
+        </dependency>
+        <!-- sql性能分析插件 -->
+        <dependency>
+            <groupId>p6spy</groupId>
+            <artifactId>p6spy</artifactId>
+            <version>3.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.8.41</version>
+        </dependency>
+        <!-- MySQL驱动 -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.33</version>
+        </dependency>
         <!-- HIK SDK -->
         <dependency>
             <groupId>com.sun.jna</groupId>
@@ -84,5 +119,15 @@
             </plugin>
         </plugins>
     </build>
-
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-bom</artifactId>
+                <version>3.5.14</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

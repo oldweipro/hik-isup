@@ -2,7 +2,7 @@
 
 ### 项目
 
-最大程度保留SDK原始代码，SDK代码统一放到`com.oldwei.hikisup.sdk`包中。在SDK功能基础之上封装其接口以供外部调用。
+最大程度保留SDK原始代码，SDK代码统一放到`com.oldwei.isup.sdk`包中。在SDK功能基础之上封装其接口以供外部调用。
 
 ### 端口放行
 

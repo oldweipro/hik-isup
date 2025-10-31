@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jessibuca WebSocket FLV 播放示例</title>
+    <style>
+        html, body {
+            background: #111;
+            margin: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #eee;
+            font-family: sans-serif;
+        }
+
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #container {
+            width: 800px;
+            height: 450px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: #0a84ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0668d1;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        button.stop {
+            background: #ff5555;
+        }
+
+        button.stop:hover {
+            background: #cc3333;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #aaa;
+            min-height: 20px;
+        }
+
+        .status.playing {
+            color: #4caf50;
+        }
+
+        .status.error {
+            color: #ff5555;
+        }
+
+        .status.loading {
+            color: #ffa500;
+        }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #222;
+            color: #eee;
+            font-size: 13px;
+            width: 320px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #0a84ff;
+            background: #2a2a2a;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <h2>🎥 Jessibuca FLV WebSocket 播放</h2>
+
+    <div>
+        <select id="deviceSelect">
+            <option value="">加载中...</option>
+        </select>
+    </div>
+
+    <div id="container"></div>
+
+    <div class="control-panel">
+        <button id="playBtn">▶️ 开始播放</button>
+        <button id="stopBtn" class="stop" disabled>⏹️ 停止播放</button>
+    </div>
+
+    <div class="status" id="status">正在加载设备列表...</div>
+</div>
+
+<script>
+    let player = null;
+    let isPlaying = false;
+
+    const deviceSelect = document.getElementById('deviceSelect');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+
+    /** ================= 工具函数 ================== **/
+    function updateStatus(message, type = 'normal') {
+        statusEl.textContent = message;
+        statusEl.className = 'status ' + type;
+    }
+
+    function setButtonState(playing) {
+        playBtn.disabled = playing;
+        stopBtn.disabled = !playing;
+        isPlaying = playing;
+    }
+
+    async function checkJessibuca() {
+        if (typeof Jessibuca !== 'undefined') return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = './jessibuca/jessibuca.min.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('无法加载 Jessibuca 库'));
+            document.head.appendChild(script);
+        });
+    }
+
+    /** ================= 设备列表 ================== **/
+    async function loadDeviceList() {
+        try {
+            updateStatus('⏳ 正在加载设备列表...', 'loading');
+            const res = await fetch('/mediaStream/deviceList');
+            const json = await res.json();
+
+            if (json.code !== 200 || !Array.isArray(json.data)) {
+                throw new Error('设备列表数据格式不正确');
+            }
+
+            const devices = json.data.filter(d => d.isOnline === 1); // 只显示在线设备
+            deviceSelect.innerHTML = '';
+
+            if (devices.length === 0) {
+                deviceSelect.innerHTML = '<option value="">暂无在线设备</option>';
+                updateStatus('⚠️ 暂无在线设备', 'error');
+                return;
+            }
+
+            deviceSelect.innerHTML = devices.map(d =>
+                `<option value="${d.deviceId}">${d.deviceId} ${d.isPush === 1 ? '🟢推流中' : '🟡未推流'}</option>`
+            ).join('');
+
+            updateStatus('✅ 设备列表加载完成');
+        } catch (err) {
+            console.error(err);
+            deviceSelect.innerHTML = '<option value="">加载失败，请刷新</option>';
+            updateStatus('❌ 加载设备列表失败: ' + err.message, 'error');
+        }
+    }
+
+    /** ================= 获取播放地址 ================== **/
+    async function fetchPlayUrl(playKey) {
+        try {
+            const response = await fetch(`/mediaStream/preview/${playKey}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+            });
+
+            if (!response.ok) throw new Error('接口请求失败');
+            const result = await response.json();
+
+            if (result.code !== 200 || !result.data?.length) {
+                throw new Error(result.msg || '未获取到播放地址');
+            }
+
+            return result.data[0].playURL;
+        } catch (err) {
+            throw new Error(`请求出错: ${err.message}`);
+        }
+    }
+
+    /** ================= 播放逻辑 ================== **/
+    playBtn.onclick = async () => {
+        const playKey = deviceSelect.value;
+        if (!playKey) {
+            updateStatus('❌ 请选择一个设备', 'error');
+            return;
+        }
+
+        updateStatus('⏳ 请求播放地址...', 'loading');
+        setButtonState(true);
+
+        try {
+            const playURL = await fetchPlayUrl(playKey);
+            console.log('✅ 获取播放地址:', playURL);
+
+            await checkJessibuca();
+
+            if (player) {
+                player.destroy();
+                player = null;
+            }
+
+            updateStatus('⏳ 正在连接...', 'loading');
+
+            player = new Jessibuca({
+                container: document.getElementById('container'),
+                videoBuffer: 0.3,
+                isResize: true,
+                isFullScreen: true,
+                showBandwidth: true,
+                debug: false,
+                decoder: "./jessibuca/decoder.js",
+                bufferTime: 10000,
+                liveMode: true,
+                hasAudio: true,
+                loadingTimeout: 20,
+                isFlv: true,
+                loadingText: "连接中..."
+            });
+
+            player.on("play", () => updateStatus('✅ 正在播放', 'playing'));
+            player.on("error", (e) => {
+                updateStatus(`❌ 播放错误: ${e}`, 'error');
+                setButtonState(false);
+            });
+            player.on("disconnect", () => {
+                updateStatus('⚠️ 连接已断开', 'error');
+                setButtonState(false);
+            });
+
+            player.play(playURL);
+        } catch (err) {
+            console.error(err);
+            updateStatus(`❌ ${err.message}`, 'error');
+            setButtonState(false);
+        }
+    };
+
+    stopBtn.onclick = stopPlayback;
+
+    function stopPlayback() {
+        if (player) {
+            try {
+                player.destroy();
+            } catch {
+            }
+            player = null;
+        }
+        updateStatus('已停止播放', 'normal');
+        setButtonState(false);
+    }
+
+    window.addEventListener('beforeunload', stopPlayback);
+
+    // 页面初始化加载设备列表
+    loadDeviceList();
+</script>
+</body>
+</html>
