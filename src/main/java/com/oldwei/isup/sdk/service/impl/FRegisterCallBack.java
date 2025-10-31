@@ -5,6 +5,7 @@ import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.service.DEVICE_REGISTER_CB;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
+import com.oldwei.isup.sdk.service.IHikISUPAlarm;
 import com.oldwei.isup.sdk.service.constant.EHOME_REGISTER_TYPE;
 import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_REG_INFO_V12;
 import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_SESSIONKEY;
@@ -26,6 +27,7 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
     private final HCISUPCMS hcisupcms;
     private final IDeviceService deviceService;
     private final IMediaStreamService mediaStreamService;
+    private final IHikISUPAlarm hikISUPAlarm;
 
     @Override
     public boolean invoke(int lUserID, int dwDataType, Pointer pOutBuffer, int dwOutLen, Pointer pInBuffer, int dwInLen, Pointer pUser) {
@@ -165,7 +167,7 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 Pointer pSessionKey = struSessionKey.getPointer();
                 hcisupcms.NET_ECMS_SetDeviceSessionKey(pSessionKey);
                 log.info("Ehome5.0设备Sessionkey回调 Device session key, DeviceID is: {}", new String(strDevRegInfo.struRegInfo.byDeviceID).trim());
-//             TODO   AlarmDemo.hcEHomeAlarm.NET_EALARM_SetDeviceSessionKey(pSessionKey);
+                hikISUPAlarm.NET_EALARM_SetDeviceSessionKey(pSessionKey);
                 break;
             case EHOME_REGISTER_TYPE.ENUM_DEV_DAS_REQ: //HCISUPCMS.ENUM_DEV_DAS_REQ
                 String dasInfo = "{\n" +

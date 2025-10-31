@@ -16,7 +16,6 @@ public class ISUPServiceConfig {
 
     @Bean
     public IHikISUPAlarm hikISUPAlarm() {
-        System.out.println("先初始化报警SDK");
         IHikISUPAlarm hikISUPAlarm = null;
         synchronized (IHikISUPAlarm.class) {
             String strDllPath = "";
@@ -90,7 +89,6 @@ public class ISUPServiceConfig {
 
     @Bean
     public IHikISUPStorage hikISUPStorage() {
-        System.out.println("再初始化存储SDK");
         IHikISUPStorage hikISUPStorage = null;
         synchronized (IHikISUPStorage.class) {
             String strDllPath = "";
@@ -105,7 +103,7 @@ public class ISUPServiceConfig {
                 hikISUPStorage = (IHikISUPStorage) Native.loadLibrary(strDllPath, IHikISUPStorage.class);
             } catch (Exception ex) {
                 System.out.println("loadLibrary: " + strDllPath + " Error: " + ex.getMessage());
-                return null;
+                return hikISUPStorage;
             }
         }
         if (OsSelect.isWindows()) {
@@ -194,9 +192,9 @@ public class ISUPServiceConfig {
                 hcisupcms = (HCISUPCMS) Native.loadLibrary(strDllPath, HCISUPCMS.class);
             } catch (Exception ex) {
                 System.out.println("loadLibrary: " + strDllPath + " Error: " + ex.getMessage());
+                return hcisupcms;
             }
         }
-        assert hcisupcms != null;
         // CMS_Init
         if (OsSelect.isWindows()) {
             log.info("*************** 初始化 Windows HIK ISUP CMS SDK ***************");
@@ -266,9 +264,9 @@ public class ISUPServiceConfig {
                 hikISUPStream = (IHikISUPStream) Native.loadLibrary(strDllPath, IHikISUPStream.class);
             } catch (Exception ex) {
                 log.error("loadLibrary: {}, Error: {}", strDllPath, ex.getMessage());
+                return hikISUPStream;
             }
         }
-        assert hikISUPStream != null;
         if (OsSelect.isWindows()) {
             log.info("*************** 初始化 Windows HIK ISUP STREAM SDK ***************");
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
@@ -341,6 +339,7 @@ public class ISUPServiceConfig {
                 hikNet = (IHikNet) Native.loadLibrary(strDllPath, IHikNet.class);
             } catch (Exception ex) {
                 log.error("loadLibrary: {}, Error: {}", strDllPath, ex.getMessage());
+                return hikNet;
             }
         }
         hikNet.NET_DVR_Init();
