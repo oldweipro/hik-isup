@@ -19,6 +19,10 @@ public class Device implements Serializable {
     @TableId
     private Long id;
     /**
+     * 父级ID
+     */
+    private Long parentId;
+    /**
      * 设备ID
      */
     private String deviceId;

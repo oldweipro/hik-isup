@@ -1,5 +1,6 @@
 package com.oldwei.isup.runner;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper;
 import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.mapper.DeviceMapper;
@@ -32,21 +33,24 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         log.info("========================= 重置设备状态 =========================");
-        boolean updated = new LambdaUpdateChainWrapper<>(deviceMapper)
-                .set(Device::getIsOnline, 0)
-                .set(Device::getLoginId, -1)
-                .set(Device::getChannel, -1)
-                .set(Device::getIsPush, -1)
-                .set(Device::getPreviewHandle, -1)
-                .set(Device::getPreviewListenHandle, -1)
-                .set(Device::getPreviewSessionId, -1)
-                .update();
-        if (updated) {
-            log.info("重置设备状态完成");
-        } else {
-            log.warn("重置设备状态失败");
-            // 退出程序
-            System.exit(1);
+        Long count = deviceMapper.selectCount(new LambdaQueryWrapper<Device>());
+        if (count > 0) {
+            boolean updated = new LambdaUpdateChainWrapper<>(deviceMapper)
+                    .set(Device::getIsOnline, 0)
+                    .set(Device::getLoginId, -1)
+                    .set(Device::getChannel, -1)
+                    .set(Device::getIsPush, -1)
+                    .set(Device::getPreviewHandle, -1)
+                    .set(Device::getPreviewListenHandle, -1)
+                    .set(Device::getPreviewSessionId, -1)
+                    .update();
+            if (updated) {
+                log.info("重置设备状态完成");
+            } else {
+                log.warn("重置设备状态失败");
+                // 退出程序
+                System.exit(1);
+            }
         }
         log.info("========================= 启动CMS =========================");
         NET_EHOME_CMS_LISTEN_PARAM struCMSListenPara = new NET_EHOME_CMS_LISTEN_PARAM();

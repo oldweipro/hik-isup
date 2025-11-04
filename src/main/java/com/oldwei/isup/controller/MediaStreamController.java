@@ -5,6 +5,7 @@ import com.oldwei.isup.domain.DeviceRemoteControl;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.vo.PlayURL;
+import com.oldwei.isup.model.xml.PpvspMessage;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
@@ -57,7 +58,7 @@ public class MediaStreamController {
      * @param deviceId
      * @return
      */
-    @GetMapping("/preview/{deviceId}")
+    @PostMapping("/preview/{deviceId}")
     public R<PlayURL> startPreview(@PathVariable String deviceId) {
         Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
         if (deviceOpt.isPresent()) {
@@ -136,7 +137,12 @@ public class MediaStreamController {
         Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
-            return cmsUtil.CMS_XMLRemoteControl(device.getLoginId());
+            PpvspMessage ppvspMessage = cmsUtil.CMS_XMLRemoteControl(device.getLoginId());
+            DeviceRemoteControl deviceRemoteControl = new DeviceRemoteControl();
+            deviceRemoteControl.setIsOnline(1);
+            String ch = ppvspMessage.getParams().getDeviceStatusXML().getChStatus().getCh();
+            deviceRemoteControl.setLChannel(ch);
+            return deviceRemoteControl;
         }
         DeviceRemoteControl deviceRemoteControl = new DeviceRemoteControl();
         deviceRemoteControl.setIsOnline(0);

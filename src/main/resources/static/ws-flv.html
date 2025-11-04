@@ -199,11 +199,12 @@
             if (!response.ok) throw new Error('接口请求失败');
             const result = await response.json();
 
-            if (result.code !== 200 || !result.data?.length) {
+            console.log("result:", result.data.wsFlv);
+            if (result.code !== 200 || !result.data || !result.data.wsFlv) {
                 throw new Error(result.msg || '未获取到播放地址');
             }
 
-            return result.data[0].playURL;
+            return result.data.wsFlv;
         } catch (err) {
             throw new Error(`请求出错: ${err.message}`);
         }
@@ -258,7 +259,7 @@
                 updateStatus('⚠️ 连接已断开', 'error');
                 setButtonState(false);
             });
-
+            console.log("▶️ 开始播放:", playURL);
             player.play(playURL);
         } catch (err) {
             console.error(err);

@@ -38,4 +38,8 @@ public interface HCISUPCMS extends Library {
 
     //获取错误码
     int NET_ECMS_GetLastError();
+
+    boolean NET_ECMS_GetDevConfig(int lUserID, int dwCommand, Pointer lpConfig, int dwConfigSize);
+
+    boolean NET_ECMS_RemoteControl(int lUserID, int dwCommand, NET_EHOME_REMOTE_CTRL_PARAM lpCtrlParam);
 }

@@ -128,7 +128,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         NET_EHOME_PREVIEWINFO_OUT struPreviewOut = new NET_EHOME_PREVIEWINFO_OUT();
         boolean getRS = hcisupcms.NET_ECMS_StartGetRealStreamV11(device.getLoginId(), struPreviewInV11, struPreviewOut);
         log.info("NET_ECMS_StartGetRealStream 预览请求: {}", getRS);
-        if (!getRS) {
+        if (!hcisupcms.NET_ECMS_StartGetRealStreamV11(device.getLoginId(), struPreviewInV11, struPreviewOut)) {
             log.error("NET_ECMS_StartGetRealStream failed, error code: {}", hcisupcms.NET_ECMS_GetLastError());
             return -1;
         } else {

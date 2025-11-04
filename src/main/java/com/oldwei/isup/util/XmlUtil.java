@@ -1,73 +1,99 @@
 package com.oldwei.isup.util;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+import jakarta.xml.bind.JAXBContext;
+import jakarta.xml.bind.JAXBException;
+import jakarta.xml.bind.Unmarshaller;
+import lombok.extern.slf4j.Slf4j;
+import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLFilterImpl;
+import org.xml.sax.helpers.XMLReaderFactory;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.sax.SAXSource;
 import java.io.StringReader;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 通用 XML 反序列化工具，支持忽略命名空间（xmlns）
+ * 适用于：Hikvision ISAPI / 海康 SDK / 任意动态 XML 命名空间格式
+ * <p>
+ * 示例：
+ * DeviceInfo info = XmlUtils.fromXml(xmlString, DeviceInfo.class);
+ */
+@Slf4j
 public class XmlUtil {
 
-    public static int findXmlChannel(String xmlContent) {
-        try {
-//            String xmlContent = "<?xml version=\"1.0\" encoding=\"GB2312\"?>\n" +
-//                    "<PPVSPMessage>\n" +
-//                    "<Version>2.0</Version>\n" +
-//                    "<Sequence>5262</Sequence>\n" +
-//                    "<CommandType>RESPONSE</CommandType>\n" +
-//                    "<WhichCommand>GETDEVICEWORKSTATUS</WhichCommand>\n" +
-//                    "<Status>200</Status>\n" +
-//                    "<Description>OK</Description>\n" +
-//                    "<Params>\n" +
-//                    "<DeviceStatusXML>\n" +
-//                    "<Run>0</Run>\n" +
-//                    "<CPU>9</CPU>\n" +
-//                    "<Mem>86</Mem>\n" +
-//                    "<DSKStatus/>\n" +
-//                    "<CHStatus>\n" +
-//                    "<CH>1-0-0-0-5043-0</CH>\n" +
-//                    "<CH>2-0-0-0-5043-0</CH>\n" +
-//                    "</CHStatus>\n" +
-//                    "<AlarmInStatus/>\n" +
-//                    "<AlarmOutStatus/>\n" +
-//                    "<LocalDisplayStatus>0</LocalDisplayStatus>\n" +
-//                    "<ForbidPreview>0</ForbidPreview>\n" +
-//                    "<DefenseStatus>1</DefenseStatus>\n" +
-//                    "<ArmDelayTime>0</ArmDelayTime>\n" +
-//                    "<Remark>test/debug</Remark>\n" +
-//                    "</DeviceStatusXML>\n" +
-//                    "</Params>\n" +
-//                    "</PPVSPMessage>";
+    // JAXBContext 缓存，避免重复创建（性能优化）
+    private static final Map<Class<?>, JAXBContext> CONTEXT_CACHE = new ConcurrentHashMap<>();
 
-            // Parse the XML string
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(new InputSource(new StringReader(xmlContent)));
-
-            // Get the <CH> element
-            NodeList chList = doc.getElementsByTagName("CH");
-            if (chList.getLength() > 0) {
-                Element chElement = (Element) chList.item(0);
-                String chValue = chElement.getTextContent();
-
-                // Get the first character
-                if (!chValue.isEmpty()) {
-                    String value = String.valueOf(chValue.charAt(0));
-                    int firstChar = Integer.parseInt(value);
-//                    System.out.println("First character of <CH>: " + firstChar);
-                    return firstChar;
-                } else {
-                    System.out.println("<CH> element is empty.");
-                }
-            } else {
-                System.out.println("No <CH> element found in the XML.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    /**
+     * 从 XML 字符串反序列化为对象（忽略命名空间）
+     */
+    public static <T> T fromXml(String xml, Class<T> clazz) {
+        if (xml == null || xml.isEmpty()) {
+            log.warn("XmlUtils.fromXml: XML 字符串为空");
+            return null;
         }
-        return 0;
+        try {
+            JAXBContext context = CONTEXT_CACHE.computeIfAbsent(clazz, c -> {
+                try {
+                    return JAXBContext.newInstance(c);
+                } catch (JAXBException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            Unmarshaller unmarshaller = context.createUnmarshaller();
+
+            // 使用 SAX 过滤器去除命名空间
+            XMLReader xmlReader = XMLReaderFactory.createXMLReader();
+            XMLFilterImpl nsFilter = new XMLFilterImpl(xmlReader) {
+                @Override
+                public void startElement(String uri, String localName, String qName, Attributes atts)
+                        throws org.xml.sax.SAXException {
+                    super.startElement("", localName, qName, atts);
+                }
+
+                @Override
+                public void endElement(String uri, String localName, String qName)
+                        throws org.xml.sax.SAXException {
+                    super.endElement("", localName, qName);
+                }
+            };
+
+            InputSource inputSource = new InputSource(new StringReader(xml));
+            SAXSource saxSource = new SAXSource(nsFilter, inputSource);
+
+            @SuppressWarnings("unchecked")
+            T result = (T) unmarshaller.unmarshal(saxSource);
+            return result;
+
+        } catch (Exception e) {
+            log.error("XmlUtils.fromXml 反序列化失败: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * 将对象序列化为 XML 字符串
+     */
+    public static String toXml(Object obj) {
+        if (obj == null) return "";
+        try {
+            JAXBContext context = CONTEXT_CACHE.computeIfAbsent(obj.getClass(), c -> {
+                try {
+                    return JAXBContext.newInstance(c);
+                } catch (JAXBException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            java.io.StringWriter writer = new java.io.StringWriter();
+            context.createMarshaller().marshal(obj, writer);
+            return writer.toString();
+        } catch (Exception e) {
+            log.error("XmlUtils.toXml 序列化失败: {}", e.getMessage(), e);
+            return "";
+        }
     }
 }
