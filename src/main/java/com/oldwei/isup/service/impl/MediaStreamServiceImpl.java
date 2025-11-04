@@ -59,9 +59,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 log.error("启动实时流失败");
                 return;
             }
-            device.setPreviewSessionId(sessionID);
-            deviceService.updateById(device);
-            log.info("sessionID: {}", device.getPreviewSessionId());
 
             // 阻塞，直到 stopPreview() 调用 latch.countDown()
             latch.await();
@@ -134,6 +131,9 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         } else {
             struPreviewOut.read();
             log.info("NET_ECMS_StartGetRealStream succeed, sessionID: {}", struPreviewOut.lSessionID);
+            device.setPreviewSessionId(struPreviewOut.lSessionID);
+            deviceService.updateById(device);
+            log.info("sessionID: {}", device.getPreviewSessionId());
             NET_EHOME_PUSHSTREAM_IN struPushInfoIn = new NET_EHOME_PUSHSTREAM_IN();
             struPushInfoIn.read();
             struPushInfoIn.dwSize = struPushInfoIn.size();

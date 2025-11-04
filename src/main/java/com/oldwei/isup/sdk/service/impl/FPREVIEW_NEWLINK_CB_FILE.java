@@ -31,7 +31,7 @@ public class FPREVIEW_NEWLINK_CB_FILE implements PREVIEW_NEWLINK_CB {
         log.info("预览数据回调参数 lPreviewHandle: {}", lPreviewHandle);
 
         int iSessionID = pNewLinkCBMsg.iSessionID;
-        Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getPreviewSessionId, iSessionID));
+        Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getPreviewSessionId, String.valueOf(iSessionID)));
         if (oneOpt.isPresent()) {
             Device device = oneOpt.get();
             device.setPreviewHandle(lPreviewHandle);
@@ -45,6 +45,8 @@ public class FPREVIEW_NEWLINK_CB_FILE implements PREVIEW_NEWLINK_CB {
                 return false;
             }
             return true;
+        } else {
+            log.warn("通过sessionID:{} 未找到对应的设备信息", iSessionID);
         }
         return false;
     }
