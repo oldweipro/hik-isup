@@ -1,18 +1,24 @@
 package com.oldwei.isup.sdk.isapi;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.xml.DeviceInfo;
 import com.oldwei.isup.model.xml.InputProxyChannelStatusList;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
+import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.util.XmlUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ISAPIService {
     private final CmsUtil cmsUtil;
+    private final IDeviceService deviceService;
 
 
     /**
@@ -71,6 +77,57 @@ public class ISAPIService {
                 </PTZData>""";
 
         cmsUtil.passThrough(lUserID, PTZCtrlUrl, PTZCtrlStopInput);
+    }
+
+    /**
+     * 控制云台移动
+     *
+     * @param deviceId   设备ID
+     * @param panSpeed   水平速度（-100~100，正为右，负为左）
+     * @param tiltSpeed  垂直速度（-100~100，正为上，负为下）
+     * @param durationMs 持续时间（毫秒）
+     */
+    public void controlPtz(String deviceId, int panSpeed, int tiltSpeed, int durationMs) {
+        Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        if (oneOpt.isPresent()) {
+            Device device = oneOpt.get();
+            int userId = device.getLoginId();
+            int channel = device.getChannel();
+            String url = "PUT /ISAPI/PTZCtrl/channels/" + channel + "/continuous";
+            String startXml = String.format("""
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <PTZData>
+                        <pan>%d</pan>
+                        <tilt>%d</tilt>
+                    </PTZData>
+                    """, panSpeed, tiltSpeed);
+
+            try {
+                // 启动云台移动
+                cmsUtil.passThrough(userId, url, startXml);
+                log.info("开始云台移动: userId={}, channel={}, pan={}, tilt={}", userId, channel, panSpeed, tiltSpeed);
+
+                // 等待指定时间后停止
+                Thread.sleep(durationMs);
+
+                String stopXml = """
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <PTZData>
+                            <pan>0</pan>
+                            <tilt>0</tilt>
+                        </PTZData>
+                        """;
+                cmsUtil.passThrough(userId, url, stopXml);
+                log.info("停止云台移动: userId={}, channel={}", userId, channel);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("云台控制线程被中断", e);
+            } catch (Exception e) {
+                log.error("云台控制异常: userId={}, channel={}, 错误={}", userId, channel, e.getMessage(), e);
+                throw new RuntimeException("云台控制失败：" + e.getMessage(), e);
+            }
+        }
+
     }
 
 

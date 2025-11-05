@@ -36,3 +36,8 @@ output/
 /sdk/
 /rtsp_server/
 *.tar
+
+#hiksdk
+ISUPPicServer/
+outputFiles/
+resources/

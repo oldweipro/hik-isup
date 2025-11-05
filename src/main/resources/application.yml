@@ -111,7 +111,7 @@ hik:
     picServer:
       # 图片存储服务器地址：IUSP5.0版本接入端口建议固定为6011
       ip: 192.168.2.235
-      port: 6011
+      port: 6120
       # 图片存储服务器类型：
       # 0-Tomcat
       # 1-VRB
@@ -121,7 +121,7 @@ hik:
       type: 2
       # 图片存储服务器监听地址端口
       listenIp: 192.168.2.235
-      listenPort: 6011
+      listenPort: 6120
 
     # ISUP5.0登录秘钥
     isupKey: hik12345

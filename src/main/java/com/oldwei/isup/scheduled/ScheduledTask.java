@@ -58,52 +58,54 @@ public class ScheduledTask {
             int lLoginID = device.getLoginId();
             // 同步通道号
             DeviceInfo xmlContent = isapiService.GetDevInfo(lLoginID);
-            // 判断设备类型
-            switch (xmlContent.getDeviceType()) {
-                case "DVR" -> {
-                    // 已知：警灯盒子
-                    InputProxyChannelStatusList channelStatusList = isapiService.GetAllDigitalChannelStatus(lLoginID);
+            if (xmlContent != null) {
+                // 判断设备类型
+                switch (xmlContent.getDeviceType()) {
+                    case "DVR" -> {
+                        // 已知：警灯盒子
+                        InputProxyChannelStatusList channelStatusList = isapiService.GetAllDigitalChannelStatus(lLoginID);
 //                    log.info("设备类型为DVR\n{}", channelStatusList);
-                    // 再套一层循环，遍历通道状态
-                    channelStatusList.getChannels().forEach(channelStatus -> {
-                        if (channelStatus.getOnline()) {
-                            String channel = String.valueOf(channelStatus.getId());
-                            String deviceId = device.getDeviceId() + "_" + channel;
+                        // 再套一层循环，遍历通道状态
+                        channelStatusList.getChannels().forEach(channelStatus -> {
+                            if (channelStatus.getOnline()) {
+                                String channel = String.valueOf(channelStatus.getId());
+                                String deviceId = device.getDeviceId() + "_" + channel;
 //                            log.info("通道号: {}", channel);
-                            Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
-                            if (oneOpt.isPresent()) {
-                                Device subDevice = oneOpt.get();
-                                // 通道号不一致，说明设备可能重启了，重新登录
+                                Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+                                if (oneOpt.isPresent()) {
+                                    Device subDevice = oneOpt.get();
+                                    // 通道号不一致，说明设备可能重启了，重新登录
 //                                log.info("已找到对应的子设备: {}", one);
-                                subDevice.setChannel(Integer.valueOf(channel));
-                                subDevice.setLoginId(device.getLoginId());
-                                subDevice.setIsOnline(1);
-                                deviceService.updateById(subDevice);
-                            } else {
+                                    subDevice.setChannel(Integer.valueOf(channel));
+                                    subDevice.setLoginId(device.getLoginId());
+                                    subDevice.setIsOnline(1);
+                                    deviceService.updateById(subDevice);
+                                } else {
 //                                log.warn("未找到对应的子设备: {}", deviceId);
-                                Device subDevice = new Device();
-                                subDevice.setParentId(device.getId());
-                                subDevice.setDeviceId(deviceId);
-                                subDevice.setIsOnline(1);
-                                subDevice.setLoginId(device.getLoginId());
-                                subDevice.setChannel(Integer.valueOf(channel));
-                                deviceService.save(subDevice);
+                                    Device subDevice = new Device();
+                                    subDevice.setParentId(device.getId());
+                                    subDevice.setDeviceId(deviceId);
+                                    subDevice.setIsOnline(1);
+                                    subDevice.setLoginId(device.getLoginId());
+                                    subDevice.setChannel(Integer.valueOf(channel));
+                                    deviceService.save(subDevice);
 //                                log.info("已创建子设备: {}", deviceId);
+                                }
                             }
-                        }
-                    });
-                }
-                case "NVR" -> log.info("设备类型为NVR");
-                case "IPCamera" -> {
+                        });
+                    }
+                    case "NVR" -> log.info("设备类型为NVR");
+                    case "IPCamera" -> {
 //                    log.info("设备类型为IPCamera");
-                    PpvspMessage msg = cmsUtil.CMS_XMLRemoteControl(lLoginID);
-                    String channel = String.valueOf(msg.getParams().getDeviceStatusXML().getChStatus().getCh().charAt(0));
+                        PpvspMessage msg = cmsUtil.CMS_XMLRemoteControl(lLoginID);
+                        String channel = String.valueOf(msg.getParams().getDeviceStatusXML().getChStatus().getCh().charAt(0));
 //                    log.info("通道号: {}", channel);
-                    // 通道号不一致，说明设备可能重启了，重新登录
-                    device.setChannel(Integer.valueOf(channel));
-                    deviceService.updateById(device);
+                        // 通道号不一致，说明设备可能重启了，重新登录
+                        device.setChannel(Integer.valueOf(channel));
+                        deviceService.updateById(device);
+                    }
+                    default -> log.info("设备类型未知: {}", xmlContent.getDeviceType());
                 }
-                default -> log.info("设备类型未知: {}", xmlContent.getDeviceType());
             }
         });
     }

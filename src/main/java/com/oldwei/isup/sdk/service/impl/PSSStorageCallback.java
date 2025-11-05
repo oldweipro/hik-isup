@@ -2,6 +2,8 @@ package com.oldwei.isup.sdk.service.impl;
 
 import com.oldwei.isup.sdk.service.EHomeSSStorageCallBack;
 import com.sun.jna.Pointer;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -9,11 +11,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-//@Service("pssStorageCallback")
+@Slf4j
+@Service("pssStorageCallback")
 public class PSSStorageCallback implements EHomeSSStorageCallBack {
 
     public boolean invoke(int iHandle, String pFileName, Pointer pFileBuf, int dwFileLen, Pointer pFilePath, Pointer pUser) {
-        System.out.println("进入存储信息回调函数");
+        log.info("进入存储信息回调函数：{}", dwFileLen);
         String strPath = System.getProperty("user.dir") + "/ISUPPicServer/";
         String strFilePath = strPath + pFileName;
 
@@ -21,7 +24,7 @@ public class PSSStorageCallback implements EHomeSSStorageCallBack {
         File myPath = new File(strPath);
         if (!myPath.exists()) {
             myPath.mkdir();
-            System.out.println("创建文件夹路径为：" + strPath);
+            log.info("创建文件夹路径为：{}", strPath);
         }
 
         if (dwFileLen > 0 && pFileBuf != null) {

@@ -579,6 +579,6 @@ public class AlarmEventHandle {
         // 输出事件信息到文件中
         CommonMethod.outputToFile("dwAlarmType_" + alarmType, ".txt", info);
         // 输出事件信息到控制台上
-        System.out.println(info);
+//        System.out.println("打印到控制台: " + info);
     }
 }

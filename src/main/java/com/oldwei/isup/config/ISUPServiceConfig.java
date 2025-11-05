@@ -29,7 +29,7 @@ public class ISUPServiceConfig {
                     strDllPath = System.getProperty("user.dir") + "/lib/libHCISUPAlarm.so";
                 hikISUPAlarm = (IHikISUPAlarm) Native.loadLibrary(strDllPath, IHikISUPAlarm.class);
             } catch (Exception ex) {
-                System.out.println("loadLibrary: " + strDllPath + " Error: " + ex.getMessage());
+                log.error("loadLibrary: {} Error: {}", strDllPath, ex.getMessage());
                 return hikISUPAlarm;
             }
         }
