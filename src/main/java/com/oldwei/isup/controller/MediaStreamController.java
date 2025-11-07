@@ -71,7 +71,9 @@ public class MediaStreamController {
                 deviceService.updateById(device);
             }
             PlayURL playURL = new PlayURL();
-            playURL.setWsFlv("ws://localhost:9002/?playKey=" + deviceId);
+            playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
+            playURL.setRtmp("rtmp://192.168.2.235:1935/live/ipc_" + device.getDeviceId());
+            playURL.setHttpFlv("http://192.168.2.235:1935/live/ipc_" + device.getDeviceId() + ".flv");
             return R.ok(playURL);
         } else {
             return R.fail("设备不存在，无法预览");

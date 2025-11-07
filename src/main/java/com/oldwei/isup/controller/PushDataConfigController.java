@@ -19,7 +19,7 @@ public class PushDataConfigController {
      * 获取列表
      */
     @GetMapping
-    public R<List<PushDataConfig>> list(@RequestParam PushDataConfig pushDataConfig) {
+    public R<List<PushDataConfig>> list(PushDataConfig pushDataConfig) {
         return R.ok(pushDataConfigService.list(new LambdaQueryWrapper<PushDataConfig>()
                         .eq(pushDataConfig.getEnable() != null, PushDataConfig::getEnable, pushDataConfig.getPushPath())
                         .eq(pushDataConfig.getId() != null, PushDataConfig::getId, pushDataConfig.getId())

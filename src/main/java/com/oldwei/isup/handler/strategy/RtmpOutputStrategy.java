@@ -131,9 +131,9 @@ public class RtmpOutputStrategy implements StreamOutputStrategy {
 
         // 音频设置
 //        if (grabber.getAudioChannels() > 0) {
-//            recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
-//            recorder.setSampleRate(grabber.getSampleRate() > 0 ? grabber.getSampleRate() : 44100);
-//            recorder.setAudioBitrate(128000);
+        recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+        recorder.setSampleRate(grabber.getSampleRate() > 0 ? grabber.getSampleRate() : 44100);
+        recorder.setAudioBitrate(128000);
 //        }
 
         recorder.setAudioChannels(0);

@@ -55,7 +55,7 @@ public class StreamHandler {
             this.hlsDir = hlsDir;
             this.frameConsumer = frameConsumer;
             this.completableFutureOne = completableFutureOne;
-            inputStream = new PipedInputStream(outputStream);
+            inputStream = new PipedInputStream(outputStream, 4096 * 5);
             running = true;
             // 启动推流主循环
             pushLoop();

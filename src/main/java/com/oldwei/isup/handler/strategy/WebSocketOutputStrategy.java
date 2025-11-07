@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 public class WebSocketOutputStrategy implements StreamOutputStrategy {
     private final Consumer<byte[]> frameConsumer;
     private FFmpegFrameRecorder recorder;
-    private final ByteArrayOutputStream outputStreamPush = new ByteArrayOutputStream();
+    private final ByteArrayOutputStream outputStreamPush = new ByteArrayOutputStream(4096 * 5);
     private final String playKey;
 
     public WebSocketOutputStrategy(String playKey, Consumer<byte[]> frameConsumer) {

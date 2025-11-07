@@ -69,32 +69,34 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         } catch (Exception e) {
             log.error("处理流时发生异常", e);
         } finally {
+            // 确保device的数据是最新的
+            Device deviceLatest = deviceService.getById(device.getId());
             // 确保资源被正确清理
-            if (device.getPreviewSessionId() != -1) {
+            if (deviceLatest.getPreviewSessionId() != -1) {
+                log.info("停止预览：PreviewHandle: {}", deviceLatest.getPreviewHandle());
+                if (!hikISUPStream.NET_ESTREAM_StopPreview(deviceLatest.getPreviewHandle())) {
+                    log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
+                }
                 //停止预览,Stream服务停止实时流转发，CMS向设备发送停止预览请求
                 log.info("停止获取实时流");
-                if (!hcisupcms.NET_ECMS_StopGetRealStream(device.getLoginId(), device.getPreviewSessionId())) {
+                if (!hcisupcms.NET_ECMS_StopGetRealStream(deviceLatest.getLoginId(), deviceLatest.getPreviewSessionId())) {
                     log.error("NET_ECMS_StopGetRealStream failed,err = {}", hcisupcms.NET_ECMS_GetLastError());
-                }
-                log.info("停止预览");
-                if (!hikISUPStream.NET_ESTREAM_StopPreview(device.getPreviewHandle())) {
-                    log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
                 }
 //                log.info("停止监听预览");
 //                if (!hikISUPStream.NET_ESTREAM_StopListenPreview(device.getPreviewListenHandle())) {
 //                    log.error("NET_ESTREAM_StopListenPreview failed,err = {}", hcisupcms.NET_ECMS_GetLastError());
 //                }
                 // 销毁streamHandler对象
-                StreamHandler streamHandler = StreamManager.concurrentMap.get(device.getPreviewSessionId());
+                StreamHandler streamHandler = StreamManager.concurrentMap.get(deviceLatest.getPreviewSessionId());
                 if (streamHandler != null) {
                     streamHandler.close();
-                    StreamManager.concurrentMap.remove(device.getPreviewSessionId());
+                    StreamManager.concurrentMap.remove(deviceLatest.getPreviewSessionId());
                 }
-                device.setIsPush(-1);
-                deviceService.updateById(device);
+                deviceLatest.setIsPush(-1);
+                deviceService.updateById(deviceLatest);
             }
-            latchMap.remove(device.getDeviceId());
-            log.info("保存流{}结束", device.getDeviceId());
+            latchMap.remove(deviceLatest.getDeviceId());
+            log.info("保存流{}结束", deviceLatest.getDeviceId());
         }
         log.info("预览线程结束: {}", device.getDeviceId());
     }
@@ -146,7 +148,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             if (StreamManager.concurrentMap.get(struPushInfoIn.lSessionID) == null) {
                 // "rtmp://localhost:1935/live/ipc"
                 StreamManager.concurrentMap.put(struPushInfoIn.lSessionID,
-                        new StreamHandler(device.getDeviceId(), null, null, true, completableFuture, frameConsumer));
+                        new StreamHandler(device.getDeviceId(), "", null, true, completableFuture, frameConsumer));
                 log.info("加入concurrentMap deviceId: {}", device.getDeviceId());
             }
             if (!hcisupcms.NET_ECMS_StartPushRealStream(device.getLoginId(), struPushInfoIn, struPushInfoOut)) {

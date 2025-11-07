@@ -22,5 +22,6 @@ public class DeviceEventBase {
     private String eventState;
     private String eventDescription;
     private Integer activePostCount;
+    private Boolean isDataRetransmission;
 }
 

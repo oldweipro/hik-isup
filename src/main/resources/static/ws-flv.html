@@ -270,7 +270,7 @@
 
     stopBtn.onclick = stopPlayback;
 
-    function stopPlayback() {
+    async function stopPlayback() {
         if (player) {
             try {
                 player.destroy();
@@ -280,6 +280,20 @@
         }
         updateStatus('已停止播放', 'normal');
         setButtonState(false);
+
+        const playKey = deviceSelect.value;
+        if (!playKey) {
+            updateStatus('❌ 请选择一个设备', 'error');
+        } else {
+            const response = await fetch(`/mediaStream/preview/${playKey}`, {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+            });
+
+            if (!response.ok) throw new Error('接口请求删除失败');
+            const result = await response.json();
+            console.log("删除预览流结果:", result);
+        }
     }
 
     window.addEventListener('beforeunload', stopPlayback);

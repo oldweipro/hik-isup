@@ -17,7 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 @Slf4j
 public class WebSocketServer extends org.java_websocket.server.WebSocketServer {
 
-    private final ExecutorService sendExecutor = Executors.newFixedThreadPool(10);
+    private final ExecutorService sendExecutor = Executors.newFixedThreadPool(100);
     private final Map<WebSocket, LinkedBlockingQueue<byte[]>> sendQueues = new ConcurrentHashMap<>();
     private final Map<WebSocket, String> connectionPlayKeyMap = new ConcurrentHashMap<>();
     private final Map<String, Set<WebSocket>> playKeyConnectionMap = new ConcurrentHashMap<>();
@@ -39,7 +39,7 @@ public class WebSocketServer extends org.java_websocket.server.WebSocketServer {
         connectionPlayKeyMap.put(conn, playKey);
         playKeyConnectionMap.computeIfAbsent(playKey, k -> ConcurrentHashMap.newKeySet()).add(conn);
 
-        LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>(100);
+        LinkedBlockingQueue<byte[]> queue = new LinkedBlockingQueue<>(10000);
         sendQueues.put(conn, queue);
 
         // 发送 FLV header + 关键帧

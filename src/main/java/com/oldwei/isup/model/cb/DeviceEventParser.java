@@ -13,6 +13,7 @@ public class DeviceEventParser {
         return switch (eventType) {
             case "faceCapture" -> mapper.readValue(json, FaceCaptureEvent.class);
             case "GPSUpload" -> mapper.readValue(json, GPSUploadEvent.class);
+            case "alarmResult" -> mapper.readValue(json, AlarmResultEvent.class);
             default ->
                 // 未知类型默认解析为基础类
                     mapper.readValue(json, DeviceEventBase.class);

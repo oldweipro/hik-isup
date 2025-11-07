@@ -16,7 +16,7 @@ import java.nio.ByteBuffer;
 public class PSSStorageCallback implements EHomeSSStorageCallBack {
 
     public boolean invoke(int iHandle, String pFileName, Pointer pFileBuf, int dwFileLen, Pointer pFilePath, Pointer pUser) {
-        log.info("进入存储信息回调函数：{}", dwFileLen);
+//        log.info("进入存储信息回调函数：{}", dwFileLen);
         String strPath = System.getProperty("user.dir") + "/ISUPPicServer/";
         String strFilePath = strPath + pFileName;
 
