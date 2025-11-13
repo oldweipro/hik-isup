@@ -68,7 +68,10 @@ public class CommonMethod {
         if (filePath == null) {
             throw new RuntimeException("filePath null error!");
         }
-        return System.getProperty("user.dir") + "\\resources\\" + filePath;
+        if (OsSelect.isWindows()) {
+            return System.getProperty("user.dir") + "\\resources\\" + filePath;
+        }
+        return System.getProperty("user.dir") + "/resources/" + filePath;
     }
 
     /**
@@ -80,8 +83,13 @@ public class CommonMethod {
      */
     public static void outputToFile(String fileName, String postFix, String fileContent) {
         SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss_SSS");
-
-        String folder = System.getProperty("user.dir") + "\\outputFiles\\event\\";
+        String folder = "";
+        if (OsSelect.isWindows()) {
+            folder = System.getProperty("user.dir") + "\\outputFiles\\event\\";
+        }
+        if (OsSelect.isLinux()) {
+            folder = System.getProperty("user.dir") + "/outputFiles/event/";
+        }
         File directory = new File(folder);
         if (!directory.exists()) {
             boolean created = directory.mkdirs();

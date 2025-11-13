@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jessibuca HTTP-FLV 低延迟播放</title>
+    <style>
+        html, body {
+            background: #111;
+            margin: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #eee;
+            font-family: sans-serif;
+        }
+
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #container {
+            width: 800px;
+            height: 450px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+        }
+
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: #0a84ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0668d1;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        button.stop {
+            background: #ff5555;
+        }
+
+        button.stop:hover {
+            background: #cc3333;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #aaa;
+            min-height: 20px;
+        }
+
+        .status.playing {
+            color: #4caf50;
+        }
+
+        .status.error {
+            color: #ff5555;
+        }
+
+        .status.loading {
+            color: #ffa500;
+        }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background: #222;
+            color: #eee;
+            font-size: 13px;
+            width: 320px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <h2>🎥 Jessibuca HTTP-FLV 低延迟播放</h2>
+
+    <div>
+        <select id="deviceSelect">
+            <option value="">加载中...</option>
+        </select>
+    </div>
+
+    <div id="container"></div>
+
+    <div class="control-panel">
+        <button id="playBtn">▶️ 开始播放</button>
+        <button id="stopBtn" class="stop" disabled>⏹️ 停止播放</button>
+    </div>
+
+    <div class="status" id="status">正在加载设备列表...</div>
+</div>
+
+<script>
+    let player = null;
+    let isPlaying = false;
+
+    const deviceSelect = document.getElementById('deviceSelect');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+
+    function updateStatus(message, type = 'normal') {
+        statusEl.textContent = message;
+        statusEl.className = 'status ' + type;
+    }
+
+    function setButtonState(playing) {
+        playBtn.disabled = playing;
+        stopBtn.disabled = !playing;
+        isPlaying = playing;
+    }
+
+    async function checkJessibuca() {
+        if (typeof Jessibuca !== 'undefined') return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = './jessibuca/jessibuca.min.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('无法加载 Jessibuca 库'));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadDeviceList() {
+        try {
+            updateStatus('⏳ 正在加载设备列表...', 'loading');
+            const res = await fetch('/mediaStream/deviceList');
+            const json = await res.json();
+            if (json.code !== 200 || !Array.isArray(json.data)) throw new Error('设备列表数据错误');
+
+            const devices = json.data.filter(d => d.isOnline === 1);
+            deviceSelect.innerHTML = devices.length
+                ? devices.map(d => `<option value="${d.deviceId}">${d.deviceId} ${d.isPush === 1 ? '🟢推流中' : '🟡未推流'}</option>`).join('')
+                : '<option value="">暂无在线设备</option>';
+            updateStatus('✅ 设备列表加载完成');
+        } catch (err) {
+            console.error(err);
+            deviceSelect.innerHTML = '<option value="">加载失败</option>';
+            updateStatus('❌ ' + err.message, 'error');
+        }
+    }
+
+    async function fetchPlayUrl(playKey) {
+        const response = await fetch(`/mediaStream/preview/${playKey}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+        });
+        const result = await response.json();
+        if (result.code !== 200 || !result.data?.httpFlv) throw new Error(result.msg || '无可用播放地址');
+        return result.data.httpFlv; // ⚠️ 改为 httpFlv 地址
+    }
+
+    playBtn.onclick = async () => {
+        const playKey = deviceSelect.value;
+        if (!playKey) return updateStatus('❌ 请选择设备', 'error');
+
+        updateStatus('⏳ 请求播放地址...', 'loading');
+        setButtonState(true);
+
+        try {
+            const playURL = await fetchPlayUrl(playKey);
+            console.log('HTTP-FLV 地址:', playURL);
+
+            await checkJessibuca();
+            if (player) player.destroy();
+
+            player = new Jessibuca({
+                container: document.getElementById('container'),
+                isFlv: true,       // 播放 http-flv
+                liveMode: true,    // 低延迟直播模式
+                videoBuffer: 0.2,  // 视频缓冲时间（越小延迟越低）
+                bufferTime: 100,   // ms，控制解码缓冲队列
+                isResize: true,
+                isFullScreen: true,
+                hasAudio: true,
+                showBandwidth: true,
+                loadingTimeout: 10,
+                decoder: "./jessibuca/decoder.js",
+                debug: false,
+                loadingText: "正在连接..."
+            });
+
+            player.on("play", () => updateStatus('✅ 正在播放', 'playing'));
+            player.on("error", e => {
+                updateStatus(`❌ 错误: ${e}`, 'error');
+                setButtonState(false);
+            });
+            player.on("disconnect", () => {
+                updateStatus('⚠️ 连接断开', 'error');
+                setButtonState(false);
+            });
+
+            console.log("▶️ 开始播放:", playURL);
+            player.play(playURL);
+
+            // Chrome 自动播放策略优化
+            const videoEl = document.querySelector('#container video');
+            if (videoEl) {
+                videoEl.muted = true; // 静音模式下可自动播放
+                await videoEl.play().catch(() => {
+                });
+            }
+        } catch (err) {
+            console.error(err);
+            updateStatus(`❌ ${err.message}`, 'error');
+            setButtonState(false);
+        }
+    };
+
+    stopBtn.onclick = stopPlayback;
+
+    async function stopPlayback() {
+        if (player) player.destroy();
+        player = null;
+        updateStatus('已停止播放', 'normal');
+        setButtonState(false);
+    }
+
+    window.addEventListener('beforeunload', stopPlayback);
+    loadDeviceList();
+</script>
+</body>
+</html>

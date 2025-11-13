@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -54,7 +55,9 @@ public class ScheduledTask {
     public void searchHikDevice() {
         // 每隔一分钟扫描一次设备
 //        log.info("每隔五秒钟扫描一次设备");
-        deviceService.list(new LambdaQueryWrapper<Device>().gt(Device::getLoginId, -1).eq(Device::getParentId, 0)).forEach((device) -> {
+        List<Device> list = deviceService.list(new LambdaQueryWrapper<Device>().gt(Device::getLoginId, -1).eq(Device::getParentId, 0));
+        if (list.isEmpty()) return;
+        list.forEach((device) -> {
             int lLoginID = device.getLoginId();
             // 同步通道号
             DeviceInfo xmlContent = isapiService.GetDevInfo(lLoginID);

@@ -1,0 +1,38 @@
+package com.oldwei.isup.sdk.service.impl;
+
+import com.oldwei.isup.sdk.StreamManager;
+import com.oldwei.isup.sdk.service.IHikISUPStream;
+import com.oldwei.isup.sdk.service.PLAYBACK_DATA_CB;
+import com.oldwei.isup.sdk.service.PLAYBACK_NEWLINK_CB;
+import com.oldwei.isup.sdk.structure.NET_EHOME_PLAYBACK_DATA_CB_PARAM;
+import com.oldwei.isup.sdk.structure.NET_EHOME_PLAYBACK_NEWLINK_CB_INFO;
+import com.sun.jna.Pointer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+@Slf4j
+@Service("playbackNewlinkCallbackHandler")
+@RequiredArgsConstructor
+public class PlaybackNewlinkCallbackHandler implements PLAYBACK_NEWLINK_CB {
+
+    private final PLAYBACK_DATA_CB playbackDataCallback;
+    private final IHikISUPStream hikISUPStream;
+
+    public boolean invoke(int lPlayBackLinkHandle, NET_EHOME_PLAYBACK_NEWLINK_CB_INFO pNewLinkCBInfo, Pointer pUserData) {
+        pNewLinkCBInfo.read();
+        System.out.println("PLAYBACK_NEWLINK_CB callback, szDeviceID:" + new String(pNewLinkCBInfo.szDeviceID).trim()
+                + ",lSessionID:" + pNewLinkCBInfo.lSessionID
+                + ",dwChannelNo:" + pNewLinkCBInfo.dwChannelNo);
+        StreamManager.m_lPlayBackLinkHandle = lPlayBackLinkHandle;
+        NET_EHOME_PLAYBACK_DATA_CB_PARAM struCBParam = new NET_EHOME_PLAYBACK_DATA_CB_PARAM();
+        //预览数据回调参数
+        struCBParam.fnPlayBackDataCB = playbackDataCallback;
+        struCBParam.byStreamFormat = 0;
+        struCBParam.write();
+        if (!hikISUPStream.NET_ESTREAM_SetPlayBackDataCB(lPlayBackLinkHandle, struCBParam)) {
+            System.out.println("NET_ESTREAM_SetPlayBackDataCB failed");
+        }
+        return true;
+    }
+}

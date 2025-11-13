@@ -26,7 +26,7 @@ public class ISUPServiceConfig {
                     strDllPath = System.getProperty("user.dir") + "\\sdk\\windows\\HCISUPAlarm.dll";
                 else if (OsSelect.isLinux())
                     //Linux系统加载库路径(路径不要带中文)
-                    strDllPath = System.getProperty("user.dir") + "/lib/libHCISUPAlarm.so";
+                    strDllPath = System.getProperty("user.dir") + "/sdk/linux/libHCISUPAlarm.so";
                 hikISUPAlarm = (IHikISUPAlarm) Native.loadLibrary(strDllPath, IHikISUPAlarm.class);
             } catch (Exception ex) {
                 log.error("loadLibrary: {} Error: {}", strDllPath, ex.getMessage());
@@ -60,14 +60,14 @@ public class ISUPServiceConfig {
             hikISUPAlarm.NET_EALARM_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
         } else if (OsSelect.isLinux()) {
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
-            String strPathCrypto = System.getProperty("user.dir") + "/lib/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
+            String strPathCrypto = System.getProperty("user.dir") + "/sdk/linux/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
             System.arraycopy(strPathCrypto.getBytes(), 0, ptrByteArrayCrypto.byValue, 0, strPathCrypto.length());
             ptrByteArrayCrypto.write();
             hikISUPAlarm.NET_EALARM_SetSDKInitCfg(0, ptrByteArrayCrypto.getPointer());
 
             //设置libssl.so所在路径
             BYTE_ARRAY ptrByteArraySsl = new BYTE_ARRAY(256);
-            String strPathSsl = System.getProperty("user.dir") + "/lib/libssl.so";    //Linux版本是libssl.so库文件的路径
+            String strPathSsl = System.getProperty("user.dir") + "/sdk/linux/libssl.so";    //Linux版本是libssl.so库文件的路径
             System.arraycopy(strPathSsl.getBytes(), 0, ptrByteArraySsl.byValue, 0, strPathSsl.length());
             ptrByteArraySsl.write();
             hikISUPAlarm.NET_EALARM_SetSDKInitCfg(1, ptrByteArraySsl.getPointer());
@@ -78,7 +78,7 @@ public class ISUPServiceConfig {
             }
             //设置HCAapSDKCom组件库文件夹所在路径
             BYTE_ARRAY ptrByteArrayCom = new BYTE_ARRAY(256);
-            String strPathCom = System.getProperty("user.dir") + "/lib/HCAapSDKCom/";        //只支持绝对路径，建议使用英文路径
+            String strPathCom = System.getProperty("user.dir") + "/sdk/linux/HCAapSDKCom/";        //只支持绝对路径，建议使用英文路径
             System.arraycopy(strPathCom.getBytes(), 0, ptrByteArrayCom.byValue, 0, strPathCom.length());
             ptrByteArrayCom.write();
             hikISUPAlarm.NET_EALARM_SetSDKLocalCfg(5, ptrByteArrayCom.getPointer());
@@ -99,7 +99,7 @@ public class ISUPServiceConfig {
                     strDllPath = System.getProperty("user.dir") + "\\sdk\\windows\\HCISUPSS.dll";
                 else if (OsSelect.isLinux())
                     //Linux系统加载库路径(路径不要带中文)
-                    strDllPath = System.getProperty("user.dir") + "/lib/libHCISUPSS.so";
+                    strDllPath = System.getProperty("user.dir") + "/sdk/linux/libHCISUPSS.so";
                 hikISUPStorage = (IHikISUPStorage) Native.loadLibrary(strDllPath, IHikISUPStorage.class);
             } catch (Exception ex) {
                 System.out.println("loadLibrary: " + strDllPath + " Error: " + ex.getMessage());
@@ -139,7 +139,7 @@ public class ISUPServiceConfig {
             }
         } else if (OsSelect.isLinux()) {
             BYTE_ARRAY ptrByteArrayCrypto = new BYTE_ARRAY(256);
-            String strPathCrypto = System.getProperty("user.dir") + "/lib/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
+            String strPathCrypto = System.getProperty("user.dir") + "/sdk/linux/libcrypto.so"; //Linux版本是libcrypto.so库文件的路径
             System.out.println(strPathCrypto);
             System.arraycopy(strPathCrypto.getBytes(), 0, ptrByteArrayCrypto.byValue, 0, strPathCrypto.length());
             ptrByteArrayCrypto.write();
@@ -147,7 +147,7 @@ public class ISUPServiceConfig {
 
             //设置libssl.so所在路径
             BYTE_ARRAY ptrByteArraySsl = new BYTE_ARRAY(256);
-            String strPathSsl = System.getProperty("user.dir") + "/lib/libssl.so";    //Linux版本是libssl.so库文件的路径
+            String strPathSsl = System.getProperty("user.dir") + "/sdk/linux/libssl.so";    //Linux版本是libssl.so库文件的路径
             System.out.println(strPathSsl);
             System.arraycopy(strPathSsl.getBytes(), 0, ptrByteArraySsl.byValue, 0, strPathSsl.length());
             ptrByteArraySsl.write();
@@ -155,7 +155,7 @@ public class ISUPServiceConfig {
 
             //设置splite3.so所在路径
             BYTE_ARRAY ptrByteArraysplite = new BYTE_ARRAY(256);
-            String strPathsplite = System.getProperty("user.dir") + "/lib/libsqlite3.so";    //Linux版本是libsqlite3.so库文件的路径
+            String strPathsplite = System.getProperty("user.dir") + "/sdk/linux/libsqlite3.so";    //Linux版本是libsqlite3.so库文件的路径
             System.out.println(strPathsplite);
             System.arraycopy(strPathsplite.getBytes(), 0, ptrByteArraysplite.byValue, 0, strPathsplite.length());
             ptrByteArraysplite.write();
@@ -335,7 +335,7 @@ public class ISUPServiceConfig {
                 if (OsSelect.isWindows())
                     strDllPath = System.getProperty("user.dir") + "\\sdk\\windows\\netsdk\\HCNetSDK.dll";
                 else if (OsSelect.isLinux())
-                    strDllPath = System.getProperty("user.dir") + "/sdk/linux/libhcnetsdk.so";
+                    strDllPath = System.getProperty("user.dir") + "/sdk/linux/netsdk/libhcnetsdk.so";
                 hikNet = (IHikNet) Native.loadLibrary(strDllPath, IHikNet.class);
             } catch (Exception ex) {
                 log.error("loadLibrary: {}, Error: {}", strDllPath, ex.getMessage());

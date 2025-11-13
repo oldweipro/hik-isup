@@ -33,9 +33,9 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
 
     @Override
     public boolean invoke(int iHandle, NET_EHOME_ALARM_MSG pAlarmMsg, Pointer pUser) {
-//        log.info("--------报警回调函数被调用--------");
+        log.info("--------报警回调函数被调用--------");
         // 输出事件信息到控制台上
-//        log.info("AlarmType: {}, dwAlarmInfoLen: {}, dwXmlBufLen: {}, iHandle: {}", pAlarmMsg.dwAlarmType, pAlarmMsg.dwAlarmInfoLen, pAlarmMsg.dwXmlBufLen, iHandle);
+        log.info("AlarmType: {}, dwAlarmInfoLen: {}, dwXmlBufLen: {}, iHandle: {}", pAlarmMsg.dwAlarmType, pAlarmMsg.dwAlarmInfoLen, pAlarmMsg.dwXmlBufLen, iHandle);
 
         ObjectMapper mapper = new ObjectMapper();
         if (pAlarmMsg.dwXmlBufLen > 0) {
@@ -75,7 +75,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
 
                         List<PushDataConfig> list = pushDataConfigService.list(new LambdaQueryWrapper<PushDataConfig>().eq(PushDataConfig::getEnable, 1));
                         if (list.isEmpty()) {
-//                            log.warn("未配置数据推送，请先配置推送参数");
+                            log.warn("未配置数据推送，请先配置推送参数");
                             return true;
                         }
                         UploadData uploadData = new UploadData();
@@ -85,15 +85,15 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                 EventNotificationAlert eventNotificationAlert = XmlUtil.fromXml(data, EventNotificationAlert.class);
                                 if (eventNotificationAlert != null) {
                                     String jsonString = mapper.writeValueAsString(eventNotificationAlert);
-//                                    log.info("eventNotificationAlert事件消息：{}", jsonString);
+                                    log.info("eventNotificationAlert事件消息：{}", jsonString);
                                     uploadData.setDataType("ANPR");
                                     uploadData.setData(jsonString);
                                     list.forEach(config -> {
                                         String pushPath = config.getPushPath();
                                         WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-//                                log.info("推送到 {} 返回结果：{}", pushPath, resp);
+                                            log.info("推送到 {} 返回结果：{}", pushPath, resp);
                                         }, error -> {
-//                                log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
+                                            log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                         });
                                     });
                                 }
@@ -105,10 +105,10 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                             try {
                                 DeviceEventBase event = DeviceEventParser.parse(data);
                                 if (event instanceof FaceCaptureEvent faceEvent) {
-//                            log.info("检测到人脸抓拍：{}", faceEvent.getFaceCapture().size());
                                     uploadData.setDataType("FaceCapture");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(faceEvent);
+                                    log.info("检测到人脸抓拍：{}", jsonString);
                                     uploadData.setData(jsonString);
                                 } else if (event instanceof GPSUploadEvent gpsEvent) {
 //                            log.info("GPS 上报：{}", gpsEvent.getGps());
@@ -117,7 +117,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     String jsonString = mapper.writeValueAsString(gpsEvent);
                                     uploadData.setData(jsonString);
                                 } else if (event instanceof AlarmResultEvent alarmResultEvent) {
-//                            log.info("AlarmResultEvent 上报：{}", alarmResultEvent.getAlarmResult());
+                                    log.info("AlarmResultEvent 上报：{}", alarmResultEvent.getAlarmResult());
                                     uploadData.setDataType("AlarmResult");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(alarmResultEvent);
@@ -130,9 +130,9 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                 list.forEach(config -> {
                                     String pushPath = config.getPushPath();
                                     WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-//                                log.info("推送到 {} 返回结果：{}", pushPath, resp);
+                                        log.info("推送到 {} 返回结果：{}", pushPath, resp);
                                     }, error -> {
-//                                log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
+                                        log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                     });
                                 });
                             } catch (Exception e) {

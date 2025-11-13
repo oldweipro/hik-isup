@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -124,26 +125,31 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 return true;
             case EHOME_REGISTER_TYPE.ENUM_DEV_OFF:
                 log.info("设备下线回调 Device off, lUserID is: {}", lUserID);
-                Optional<Device> oneOpt1 = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getLoginId, lUserID));
-                oneOpt1.ifPresent(device1 -> {
-                    // 停止该设备的所有预览流
-                    if (device1.getIsPush() > 0) {
-                        mediaStreamService.stopPreview(device1);
-                    }
-                    device1.setIsOnline(0);
-                    device1.setLoginId(-1);
-                    device1.setChannel(-1);
-                    device1.setIsPush(-1);
-                    device1.setPreviewHandle(-1);
-                    device1.setPreviewListenHandle(-1);
-                    device1.setPreviewSessionId(-1);
-                    boolean flag = deviceService.saveOrUpdate(device1);
-                    if (flag) {
-                        log.info("设备{}下线，清除登录句柄{}", device1.getDeviceId(), lUserID);
-                    } else {
-                        log.error("设备{}下线，清除登录句柄{}失败", device1.getDeviceId(), lUserID);
-                    }
-                });
+                List<Device> deviceList = deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getLoginId, lUserID));
+                if (deviceList.isEmpty()) {
+                    log.warn("未找到登录句柄{}对应的设备", lUserID);
+                } else {
+                    log.info("找到登录句柄{}对应的设备数量: {}", lUserID, deviceList.size());
+                    deviceList.forEach(device1 -> {
+                        // 停止该设备的所有预览流
+                        if (device1.getIsPush() > 0) {
+                            mediaStreamService.stopPreview(device1);
+                        }
+                        device1.setIsOnline(0);
+                        device1.setLoginId(-1);
+                        device1.setChannel(-1);
+                        device1.setIsPush(-1);
+                        device1.setPreviewHandle(-1);
+                        device1.setPreviewListenHandle(-1);
+                        device1.setPreviewSessionId(-1);
+                        boolean flag = deviceService.saveOrUpdate(device1);
+                        if (flag) {
+                            log.info("设备{}下线，清除登录句柄{}", device1.getDeviceId(), lUserID);
+                        } else {
+                            log.error("设备{}下线，清除登录句柄{}失败", device1.getDeviceId(), lUserID);
+                        }
+                    });
+                }
                 break;
             case EHOME_REGISTER_TYPE.ENUM_DEV_AUTH:
                 // Ehome5.0设备认证回调

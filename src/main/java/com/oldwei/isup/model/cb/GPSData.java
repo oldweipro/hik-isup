@@ -18,5 +18,6 @@ public class GPSData {
     private Integer precision;
     private Integer height;
     private Integer retransFlag;
+    private Integer timeZoneIdx;
 }
 

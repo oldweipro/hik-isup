@@ -11,4 +11,8 @@ public interface IMediaStreamService {
     void preview(Device device);
 
     void stopPreview(Device device);
+
+    void playbackByTime(Integer deviceId, Integer channelId, String startTime, String endTime);
+
+    void stopPlayBackByTime(Integer device);
 }

@@ -1,11 +1,14 @@
 package com.oldwei.isup.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.domain.DeviceRemoteControl;
+import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.model.xml.PpvspMessage;
+import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
@@ -33,6 +36,7 @@ public class MediaStreamController {
     private final IMediaStreamService mediaStreamService;
     private final CmsUtil cmsUtil;
     private final IDeviceService deviceService;
+    private final HikStreamProperties hikStreamProperties;
 
     @GetMapping("/deviceList")
     public R<List<Device>> getDeviceList(Device device) {
@@ -63,18 +67,28 @@ public class MediaStreamController {
         Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
-            if (device.getIsOnline() == 0) {
+            // TODO 应该直接查询内存中是否存在
+            StreamHandler streamHandler = StreamManager.concurrentMap.get(device.getDeviceId());
+            if (device.getIsOnline() == 1) {
+                if (device.getIsPush() == 1) {
+                    PlayURL playURL = new PlayURL();
+//                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
+                    playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/ipc_" + device.getDeviceId());
+                    playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/live/ipc_" + device.getDeviceId() + ".live.flv");
+                    return R.ok(playURL);
+                } else {
+                    device.setIsPush(1);
+                    deviceService.updateById(device);
+                    mediaStreamService.preview(device);
+                    PlayURL playURL = new PlayURL();
+//                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
+                    playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/ipc_" + device.getDeviceId());
+                    playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/live/ipc_" + device.getDeviceId() + ".live.flv");
+                    return R.ok(playURL);
+                }
+            } else {
                 return R.fail("设备不在线，无法预览");
-            } else if (device.getIsPush() != 1) {
-                mediaStreamService.preview(device);
-                device.setIsPush(1);
-                deviceService.updateById(device);
             }
-            PlayURL playURL = new PlayURL();
-            playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
-            playURL.setRtmp("rtmp://192.168.2.235:1935/live/ipc_" + device.getDeviceId());
-            playURL.setHttpFlv("http://192.168.2.235:1935/live/ipc_" + device.getDeviceId() + ".flv");
-            return R.ok(playURL);
         } else {
             return R.fail("设备不存在，无法预览");
         }

@@ -6,6 +6,7 @@ import com.oldwei.isup.sdk.structure.BYTE_ARRAY;
 import com.oldwei.isup.sdk.structure.NET_DVR_AUDIODEC_PROCESS_PARAM;
 import com.oldwei.isup.sdk.structure.NET_EHOME_VOICETALK_DATA_CB_INFO;
 import com.oldwei.isup.util.CommonMethod;
+import com.oldwei.isup.util.OsSelect;
 import com.sun.jna.Pointer;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +27,13 @@ public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
     public VoiceTalkDataCallBackImpl(IHikNet hikNet) {
         this.hikNet = hikNet;
         // 保存回调函数的音频数据
-        fileG7 = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.g7"));
+        if (OsSelect.isWindows()) {
+            fileG7 = new File(CommonMethod.getResFileAbsPath("audioFile\\DeviceToPlat.g7"));
+        }
+        if (OsSelect.isLinux()) {
+            fileG7 = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.g7"));
+        }
+
         try {
             if (!fileG7.exists()) {
                 fileG7.createNewFile();
@@ -38,7 +45,12 @@ public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
         }
 
         // 保存回调函数的音频数据（解码后的pcm数据，播放和确认时长）
-        filePcm = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.pcm"));
+        if (OsSelect.isLinux()) {
+            filePcm = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.pcm"));
+        }
+        if (OsSelect.isWindows()) {
+            filePcm = new File(CommonMethod.getResFileAbsPath("audioFile\\DeviceToPlat.pcm"));
+        }
         try {
             if (!filePcm.exists()) {
                 filePcm.createNewFile();

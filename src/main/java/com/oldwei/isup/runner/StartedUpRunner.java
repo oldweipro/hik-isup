@@ -33,6 +33,7 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
     private final EHomeSSStorageCallBack pssStorageCallback;
     private final EHomeSSMsgCallBack pssMessageCallback;
     private final EHomeMsgCallBack alarmMsgCallBack;
+    private final PLAYBACK_NEWLINK_CB playbackNewlinkCallbackHandler;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -191,6 +192,26 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
         } else {
             String VoiceStreamListenInfo = new String(net_ehome_listen_voicetalk_cfg.struIPAdress.szIP).trim() + "_" + net_ehome_listen_voicetalk_cfg.struIPAdress.wPort;
             System.out.println("语音流媒体服务：" + VoiceStreamListenInfo + ",NET_ESTREAM_StartListenVoiceTalk succeed, " + voiceCallBack);
+        }
+
+        log.info("=========================  开启回放监听 启用流媒体服务器（SMS）的回放监听并注册回调函数以接收设备连接请求  =========================");
+        NET_EHOME_PLAYBACK_LISTEN_PARAM struPlayBackListen = new NET_EHOME_PLAYBACK_LISTEN_PARAM();
+        System.arraycopy(hikIsupProperties.getSmsBackServer().getListenIp().getBytes(), 0, struPlayBackListen.struIPAdress.szIP, 0, hikIsupProperties.getSmsBackServer().getListenIp().length());
+        struPlayBackListen.struIPAdress.wPort = Short.parseShort(hikIsupProperties.getSmsBackServer().getListenPort()); //流媒体服务器监听端口
+        struPlayBackListen.fnNewLinkCB = playbackNewlinkCallbackHandler;
+        struPlayBackListen.byLinkMode = 0; //0- TCP方式，1- UDP方式
+
+        int m_lPlayBackListenHandle = hikISUPStream.NET_ESTREAM_StartListenPlayBack(struPlayBackListen);
+        //TODO 如果m_lPlayBackListenHandle大于等于0需要销毁
+//        System.out.println("停止回放流媒体Stream服务");
+//        StreamDemo.hCEhomeStream.NET_ESTREAM_StopListenPlayBack(StreamDemo.m_lPlayBackListenHandle);
+        if (m_lPlayBackListenHandle < -1) {
+            System.out.println("NET_ESTREAM_StartListenPlayBack failed, error code:" + hikISUPStream.NET_ESTREAM_GetLastError());
+            hikISUPStream.NET_ESTREAM_Fini();
+            return;
+        } else {
+            String BackStreamListenInfo = new String(struPlayBackListen.struIPAdress.szIP).trim() + "_" + struPlayBackListen.struIPAdress.wPort;
+            System.out.println("回放流媒体服务：" + BackStreamListenInfo + ",NET_ESTREAM_StartListenPlayBack succeed");
         }
         log.info("========================= 项目启动完成 =========================");
     }

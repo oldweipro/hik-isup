@@ -1,9 +1,6 @@
 package com.oldwei.isup.sdk.service;
 
-import com.oldwei.isup.sdk.structure.NET_EHOME_LISTEN_PREVIEW_CFG;
-import com.oldwei.isup.sdk.structure.NET_EHOME_LISTEN_VOICETALK_CFG;
-import com.oldwei.isup.sdk.structure.NET_EHOME_PREVIEW_DATA_CB_PARAM;
-import com.oldwei.isup.sdk.structure.NET_EHOME_VOICETALK_DATA_CB_PARAM;
+import com.oldwei.isup.sdk.structure.*;
 import com.sun.jna.Library;
 import com.sun.jna.Pointer;
 
@@ -63,4 +60,10 @@ public interface IHikISUPStream extends Library {
     int NET_ESTREAM_StartListenVoiceTalk(NET_EHOME_LISTEN_VOICETALK_CFG pListenParam);
 
     boolean NET_ESTREAM_SetVoiceTalkDataCB(int lHandle, NET_EHOME_VOICETALK_DATA_CB_PARAM pStruCBParam);
+
+    int NET_ESTREAM_StartListenPlayBack(NET_EHOME_PLAYBACK_LISTEN_PARAM pListenParam);
+
+    boolean NET_ESTREAM_SetPlayBackDataCB(int iPlayBackLinkHandle, NET_EHOME_PLAYBACK_DATA_CB_PARAM pDataCBParam);
+
+    boolean NET_ESTREAM_StopPlayBack(int iPlayBackLinkHandle);
 }

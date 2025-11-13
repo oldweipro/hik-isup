@@ -42,4 +42,10 @@ public interface HCISUPCMS extends Library {
     boolean NET_ECMS_GetDevConfig(int lUserID, int dwCommand, Pointer lpConfig, int dwConfigSize);
 
     boolean NET_ECMS_RemoteControl(int lUserID, int dwCommand, NET_EHOME_REMOTE_CTRL_PARAM lpCtrlParam);
+
+    boolean NET_ECMS_StartPlayBack(int lUserID, NET_EHOME_PLAYBACK_INFO_IN pPlaybackInfoIn, NET_EHOME_PLAYBACK_INFO_OUT pPlaybackInfoOut);
+
+    boolean NET_ECMS_StartPushPlayBack(int lUserID, NET_EHOME_PUSHPLAYBACK_IN struPushPlayBackIn, NET_EHOME_PUSHPLAYBACK_OUT struPushPlayBackOut);
+
+    boolean NET_ECMS_StopPlayBack(int lUserID, int lSessionID);
 }

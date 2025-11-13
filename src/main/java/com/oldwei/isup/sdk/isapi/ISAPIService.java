@@ -143,4 +143,61 @@ public class ISAPIService {
         cmsUtil.passThrough(lUserID, getPicURL, "");
 
     }
+
+
+    /**
+     * 远程抓图
+     * URL中的<ID>，格式A0B，A表示实际通道号，B传1表示主码流，传2表示子码流。
+     * 示例：GET /ISAPI/Streaming/channels/101/picture/async?format=json&imageType=JPEG&URLType=cloudURL表示获取通道1的主码流分辨率的抓图。
+     *
+     * @param lUserID
+     */
+    public String FDSearch(int lUserID) {
+        String FDSearchURL = "POST /ISAPI/Intelligent/FDLib/FDSearch";
+
+        String FDSearchDescription = """
+                <FDSearchDescription version="2.0" xmlns="http://www.std-cgi.org/ver20/XMLSchema"><searchID>CB6D4429-E7E0-0001-5D6A-166F29C0B790</searchID><searchResultPosition>0</searchResultPosition><maxResults>15</maxResults><FDID>1</FDID><startTime></startTime><endTime></endTime><name></name><province></province><city></city><certificateType>ID</certificateType><certificateNumber></certificateNumber><phoneNumber></phoneNumber><FaceModeList><FaceMode><ModeInfo><similarity></similarity><modeData></modeData></ModeInfo></FaceMode></FaceModeList><modelingStatus></modelingStatus><modelStatus></modelStatus></FDSearchDescription>""";
+//        String FDSearchDescription = "";
+        return cmsUtil.passThrough(lUserID, FDSearchURL, FDSearchDescription);
+    }
+
+
+    /**
+     * 远程抓图
+     * URL中的<ID>，格式A0B，A表示实际通道号，B传1表示主码流，传2表示子码流。
+     * 示例：GET /ISAPI/Streaming/channels/101/picture/async?format=json&imageType=JPEG&URLType=cloudURL表示获取通道1的主码流分辨率的抓图。
+     *
+     * @param lUserID
+     */
+    public String searchLPListAudit(int lUserID, int channelId) {
+        String searchLPListAuditURL = "POST /ISAPI/Traffic/channels/" + channelId + "/searchLPListAudit";
+
+//        String FDSearchDescription = """
+//                <FDSearchDescription version="2.0" xmlns="http://www.std-cgi.org/ver20/XMLSchema"><searchID>CB6D4429-E7E0-0001-5D6A-166F29C0B790</searchID><searchResultPosition>0</searchResultPosition><maxResults>15</maxResults><FDID>1</FDID><startTime></startTime><endTime></endTime><name></name><province></province><city></city><certificateType>ID</certificateType><certificateNumber></certificateNumber><phoneNumber></phoneNumber><FaceModeList><FaceMode><ModeInfo><similarity></similarity><modeData></modeData></ModeInfo></FaceMode></FaceModeList><modelingStatus></modelingStatus><modelStatus></modelStatus></FDSearchDescription>""";
+        String FDSearchDescription = "";
+        return cmsUtil.passThrough(lUserID, searchLPListAuditURL, FDSearchDescription);
+    }
+
+
+    /**
+     * 远程抓图
+     * URL中的<ID>，格式A0B，A表示实际通道号，B传1表示主码流，传2表示子码流。
+     * 示例：GET /ISAPI/Streaming/channels/101/picture/async?format=json&imageType=JPEG&URLType=cloudURL表示获取通道1的主码流分辨率的抓图。
+     *
+     * @param lUserID
+     */
+    public String asyncImportDatas(int lUserID) {
+        String searchLPListAuditURL = "POST /ISAPI/Intelligent/FDLib/asyncImportDatas?format=json";
+        String FDSearchDescription = """
+                {
+                	"AsyncImportDatas": {
+                		"customFaceLibID": "1",
+                		"taskID": "1ad321f56dssfd1dsc",
+                		"URL": "http://192.168.2.235:6120/pic?30190B1646265D539404C99C4530781C",
+                		"type": 0,
+                		"URLCertificationType": "AWS2_0"
+                	}
+                }""";
+        return cmsUtil.passThrough(lUserID, searchLPListAuditURL, FDSearchDescription);
+    }
 }
