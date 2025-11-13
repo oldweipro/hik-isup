@@ -21,10 +21,9 @@ public class PlaybackNewlinkCallbackHandler implements PLAYBACK_NEWLINK_CB {
 
     public boolean invoke(int lPlayBackLinkHandle, NET_EHOME_PLAYBACK_NEWLINK_CB_INFO pNewLinkCBInfo, Pointer pUserData) {
         pNewLinkCBInfo.read();
-        System.out.println("PLAYBACK_NEWLINK_CB callback, szDeviceID:" + new String(pNewLinkCBInfo.szDeviceID).trim()
-                + ",lSessionID:" + pNewLinkCBInfo.lSessionID
-                + ",dwChannelNo:" + pNewLinkCBInfo.dwChannelNo);
-        StreamManager.m_lPlayBackLinkHandle = lPlayBackLinkHandle;
+        log.info("PLAYBACK_NEWLINK_CB callback, szDeviceID: {},lSessionID: {},dwChannelNo: {}", new String(pNewLinkCBInfo.szDeviceID).trim(), pNewLinkCBInfo.lSessionID, pNewLinkCBInfo.dwChannelNo);
+        StreamManager.playbackPreviewHandSAndSessionIDandMap.put(lPlayBackLinkHandle, pNewLinkCBInfo.lSessionID);
+        StreamManager.playbackSessionIDAndPreviewHandleMap.put(pNewLinkCBInfo.lSessionID, lPlayBackLinkHandle);
         NET_EHOME_PLAYBACK_DATA_CB_PARAM struCBParam = new NET_EHOME_PLAYBACK_DATA_CB_PARAM();
         //预览数据回调参数
         struCBParam.fnPlayBackDataCB = playbackDataCallback;

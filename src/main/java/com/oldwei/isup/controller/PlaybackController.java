@@ -1,7 +1,11 @@
 package com.oldwei.isup.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oldwei.isup.config.HikStreamProperties;
+import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
+import com.oldwei.isup.model.R;
+import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
@@ -11,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 @Slf4j
@@ -21,42 +27,59 @@ public class PlaybackController {
 
     private final IMediaStreamService mediaStreamService;
     private final IDeviceService deviceService;
+    private final HikStreamProperties hikStreamProperties;
 
     @GetMapping("start")
-    public void playbackByTime(String deviceId, String startTime, String endTime) {
+    public R<PlayURL> playbackByTime(String deviceId, String startTime, String endTime) {
+        try {
+            // 防止传 null 或未编码的情况
+            if (startTime != null) {
+                startTime = URLDecoder.decode(startTime, StandardCharsets.UTF_8);
+            }
+            if (endTime != null) {
+                endTime = URLDecoder.decode(endTime, StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
+            // 解码异常不应中断逻辑，可记录日志方便排查
+            log.warn("时间参数解码失败: startTime={}, endTime={}", startTime, endTime, e);
+        }
+        String httpFlv = "http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/playback/" + deviceId + ".live.flv";
+        log.info("回放httpFlv播放地址：{}", httpFlv);
         // Implementation for playback by time
         Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             Integer loginId = device.getLoginId();
-            mediaStreamService.playbackByTime(loginId, device.getChannel(), startTime, endTime);
-            while (!StreamManager.stopPlayBackFlag) {
-
-                try {
-                    Thread.sleep(1000); // 每秒检查一次
-                } catch (InterruptedException e) {
-                    // 如果线程被中断，通常需要清除中断状态
-                    Thread.currentThread().interrupt();
-                    System.out.println("Playback was interrupted");
-                    break; // 当前线程被中断时退出循环
+            Integer sessionId = StreamManager.playbackUserIDandSessionMap.get(loginId);
+            if (sessionId == null) {
+                mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
+                mediaStreamService.waitingForPlayback(loginId);
+            } else {
+                StreamHandler streamHandler = StreamManager.playbackConcurrentMap.get(sessionId);
+                if (streamHandler == null) {
+                    mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
+                    mediaStreamService.waitingForPlayback(loginId);
                 }
             }
-            mediaStreamService.stopPlayBackByTime(loginId);
         } else {
             log.info("Device not found for playback");
+            return R.fail("Failed to start playback");
         }
+        PlayURL playURL = new PlayURL();
+//        playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
+        playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/playback/" + deviceId);
+        playURL.setHttpFlv(httpFlv);
+        return R.ok(playURL);
     }
 
-//    public void stopPlayBackByTime() {
-//        if (!CmsDemo.hCEhomeCMS.NET_ECMS_StopPlayBack(lLoginID, backSessionID)) {
-//            log.info("NET_ECMS_StopPlayBack failed,err = " + CmsDemo.hCEhomeCMS.NET_ECMS_GetLastError());
-//            return;
-//        }
-//        log.info("CMS发送回放停止请求");
-//        if (!hCEhomeStream.NET_ESTREAM_StopPlayBack(m_lPlayBackLinkHandle)) {
-//            log.info("NET_ESTREAM_StopPlayBack failed,err = " + hCEhomeStream.NET_ESTREAM_GetLastError());
-//            return;
-//        }
-//        log.info("停止回放Stream服务的实时流转发");
-//    }
+    @GetMapping("stop")
+    public R<String> stopPlayBackByTime(String deviceId) {
+        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        if (deviceOpt.isPresent()) {
+            Device device = deviceOpt.get();
+            Integer loginId = device.getLoginId();
+            mediaStreamService.stopPlayBackByTime(loginId);
+        }
+        return R.ok();
+    }
 }

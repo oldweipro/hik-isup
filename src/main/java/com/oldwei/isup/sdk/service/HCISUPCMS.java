@@ -48,4 +48,9 @@ public interface HCISUPCMS extends Library {
     boolean NET_ECMS_StartPushPlayBack(int lUserID, NET_EHOME_PUSHPLAYBACK_IN struPushPlayBackIn, NET_EHOME_PUSHPLAYBACK_OUT struPushPlayBackOut);
 
     boolean NET_ECMS_StopPlayBack(int lUserID, int lSessionID);
+
+    boolean NET_ECMS_StartVoiceWithStmServer(int lUserID, NET_EHOME_VOICE_TALK_IN lpVoiceTalkIn, NET_EHOME_VOICE_TALK_OUT lpVoiceTalkOut);
+
+    boolean NET_ECMS_StartPushVoiceStream(int lUserID, NET_EHOME_PUSHVOICE_IN lpPushParamIn, NET_EHOME_PUSHVOICE_OUT lpPushParamOut);
+
 }

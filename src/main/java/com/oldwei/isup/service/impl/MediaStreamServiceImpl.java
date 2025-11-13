@@ -10,10 +10,19 @@ import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.structure.*;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
+import com.oldwei.isup.util.CommonMethod;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.TargetDataLine;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -117,9 +126,9 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 }
                 if (StreamManager.concurrentMap.get(struPushInfoIn.lSessionID) == null) {
                     // "rtmp://localhost:1935/live/ipc"
-                    String rtmpUrl = "rtmp://" + hikStreamProperties.getRtmp().getListenIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/ipc_" + device.getDeviceId();
+                    String rtmpUrl = "rtmp://" + hikStreamProperties.getRtmp().getListenIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId();
                     log.info("rtmp推流地址: {}", rtmpUrl);
-                    StreamManager.concurrentMap.put(struPushInfoIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture));
+                    StreamManager.concurrentMap.put(struPushInfoIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, null));
                     log.info("加入concurrentMap deviceId: {}", device.getDeviceId());
                 }
             }
@@ -127,27 +136,39 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     }
 
     @Override
-    public void playbackByTime(Integer loginId, Integer channelId, String startTime, String endTime) {
+    public void playbackByTime(String deviceId, Integer loginId, Integer channelId, String startTime, String endTime) {
         NET_EHOME_PLAYBACK_INFO_IN m_struPlayBackInfoIn = new NET_EHOME_PLAYBACK_INFO_IN();
         m_struPlayBackInfoIn.read();
         m_struPlayBackInfoIn.dwSize = m_struPlayBackInfoIn.size();
         m_struPlayBackInfoIn.dwChannel = channelId; //通道号
         m_struPlayBackInfoIn.byPlayBackMode = 1;//0- 按文件名回放，1- 按时间回放
         m_struPlayBackInfoIn.unionPlayBackMode.setType(NET_EHOME_PLAYBACKBYTIME.class);
-        // FIXME 这里的时间参数需要根据实际设备上存在的时间段进行设置, 否则可能可能提示：3505 - 该时间段内无录像。
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.wYear = 2025;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMonth = 11;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byDay = 8;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byHour = 11;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMinute = 3;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.bySecond = 0;
+        // 解析时间字符串（支持 "2025-11-12 11:03:00" 或 "2025-11-12T11:03:00"）
+        DateTimeFormatter formatter;
+        if (startTime.contains("T")) {
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        } else {
+            formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        }
 
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.wYear = 2025;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMonth = 11;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byDay = 9;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byHour = 11;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMinute = 3;
-        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.bySecond = 30;
+        LocalDateTime start = LocalDateTime.parse(startTime, formatter);
+        LocalDateTime end = LocalDateTime.parse(endTime, formatter);
+        // FIXME 这里的时间参数需要根据实际设备上存在的时间段进行设置, 否则可能可能提示：3505 - 该时间段内无录像。
+        // 填充开始时间
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.wYear = (short) start.getYear();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMonth = (byte) start.getMonthValue();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byDay = (byte) start.getDayOfMonth();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byHour = (byte) start.getHour();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.byMinute = (byte) start.getMinute();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStartTime.bySecond = (byte) start.getSecond();
+
+        // 填充结束时间
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.wYear = (short) end.getYear();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMonth = (byte) end.getMonthValue();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byDay = (byte) end.getDayOfMonth();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byHour = (byte) end.getHour();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.byMinute = (byte) end.getMinute();
+        m_struPlayBackInfoIn.unionPlayBackMode.struPlayBackbyTime.struStopTime.bySecond = (byte) end.getSecond();
 
         System.arraycopy(hikIsupProperties.getSmsBackServer().getIp().getBytes(), 0, m_struPlayBackInfoIn.struStreamSever.szIP,
                 0, hikIsupProperties.getSmsBackServer().getIp().length());
@@ -170,7 +191,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         m_struPushPlayBackIn.write();
 
         // TODO sessionID需要保存起来，停止回放时使用
-        StreamManager.backSessionID = m_struPushPlayBackIn.lSessionID;
+        StreamManager.playbackUserIDandSessionMap.put(loginId, m_struPushPlayBackIn.lSessionID);
 
         NET_EHOME_PUSHPLAYBACK_OUT m_struPushPlayBackOut = new NET_EHOME_PUSHPLAYBACK_OUT();
         m_struPushPlayBackOut.read();
@@ -179,23 +200,363 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
         if (!hcisupcms.NET_ECMS_StartPushPlayBack(loginId, m_struPushPlayBackIn, m_struPushPlayBackOut)) {
             System.out.println("NET_ECMS_StartPushPlayBack failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
-            return;
         } else {
             System.out.println("NET_ECMS_StartPushPlayBack succeed, sessionID:" + m_struPushPlayBackIn.lSessionID + ",lUserID:" + loginId);
+            try {
+                // 创建异步控制器
+                CompletableFuture<String> completableFuture = new CompletableFuture<>();
+                String rtmpUrl = "rtmp://" + hikStreamProperties.getRtmp().getListenIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/playback/" + deviceId;
+                log.info("回放rtmp推流地址: {}", rtmpUrl);
+                StreamManager.playbackConcurrentMap.put(m_struPushPlayBackIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, m_struPushPlayBackIn.lSessionID));
+                String result = completableFuture.get();
+                log.info("回放异步结果是: {}", result);
+//                waitingForPlayback(loginId);
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
     @Override
     public void stopPlayBackByTime(Integer loginId) {
-        if (!hcisupcms.NET_ECMS_StopPlayBack(loginId, StreamManager.backSessionID)) {
+        Integer lSessionID = StreamManager.playbackUserIDandSessionMap.get(loginId);
+        if (!hcisupcms.NET_ECMS_StopPlayBack(loginId, lSessionID)) {
             System.out.println("NET_ECMS_StopPlayBack failed,err = " + hcisupcms.NET_ECMS_GetLastError());
             return;
         }
         System.out.println("CMS发送回放停止请求");
-        if (!hikISUPStream.NET_ESTREAM_StopPlayBack(StreamManager.m_lPlayBackLinkHandle)) {
+        if (!hikISUPStream.NET_ESTREAM_StopPlayBack(StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID))) {
             System.out.println("NET_ESTREAM_StopPlayBack failed,err = " + hikISUPStream.NET_ESTREAM_GetLastError());
             return;
         }
         System.out.println("停止回放Stream服务的实时流转发");
+
+        Integer lPreviewHandle = StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID);
+        StreamHandler streamHandler = StreamManager.playbackConcurrentMap.get(lSessionID);
+        streamHandler.stopProcessing();
+        StreamManager.playbackConcurrentMap.remove(lSessionID);
+        StreamManager.playbackSessionIDAndPreviewHandleMap.remove(lSessionID);
+        StreamManager.playbackPreviewHandSAndSessionIDandMap.remove(lPreviewHandle);
+        StreamManager.playbackSessionIDAndStopPlaybackFlagMap.remove(lSessionID);
+        StreamManager.playbackUserIDandSessionMap.remove(loginId);
+        if (!StreamManager.playbackConcurrentMap.containsKey(lSessionID)
+                && !StreamManager.playbackPreviewHandSAndSessionIDandMap.containsKey(lPreviewHandle)
+                && !StreamManager.playbackUserIDandSessionMap.containsKey(loginId)
+                && !StreamManager.playbackSessionIDAndPreviewHandleMap.containsKey(lSessionID)) {
+            log.info("会话:{} 相关资源已被清空", lSessionID);
+        }
     }
+
+    @Override
+    public void waitingForPlayback(Integer loginId) {
+        Integer lSessionID = StreamManager.playbackUserIDandSessionMap.get(loginId);
+        StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(lSessionID, false);
+        while (!StreamManager.playbackSessionIDAndStopPlaybackFlagMap.get(lSessionID)) {
+            try {
+                Thread.sleep(1000); // 每秒检查一次
+//                log.info("Waiting for playback to finish for sessionID: {}", lSessionID);
+            } catch (InterruptedException e) {
+                // 如果线程被中断，通常需要清除中断状态
+                Thread.currentThread().interrupt();
+                System.out.println("Playback was interrupted");
+                break; // 当前线程被中断时退出循环
+            }
+        }
+        stopPlayBackByTime(loginId);
+    }
+
+    @Override
+    public void voiceTrans(Integer loginId) {
+        //获取设备通道对讲信息，包括编码格式，起始对讲通道号等，跟nvr对讲前先获取
+        NET_EHOME_DEVICE_INFO res = getDeviceInfo(loginId);
+        //采集本地20s音频保存为pcm
+        makeVoice(20);
+        /**
+         * ISUP5.0语音转发模块(需要设备在线, 需要确定设备是否支持此功能, 需要实现前面初始化语音流媒体服务的代码)
+         */
+        int dwVoiceChan = res.byStartDTalkChan + 3;
+        byte dwAudioEncType = (byte) res.dwAudioEncType;
+
+//        StartVoiceTrans(dwVoiceChan, dwAudioEncType);
+//        StopVoiceTrans();
+    }
+
+    private NET_EHOME_DEVICE_INFO getDeviceInfo(Integer loginId) {
+        boolean bRet;
+
+        NET_EHOME_DEVICE_INFO ehomeDeviceInfo = new NET_EHOME_DEVICE_INFO();
+        ehomeDeviceInfo.read();
+        ehomeDeviceInfo.dwSize = ehomeDeviceInfo.size();
+        ehomeDeviceInfo.write();
+
+        NET_EHOME_CONFIG strEhomeCfd = new NET_EHOME_CONFIG();
+        strEhomeCfd.pCondBuf = null;
+        strEhomeCfd.dwCondSize = 0;
+        strEhomeCfd.pOutBuf = ehomeDeviceInfo.getPointer();
+        strEhomeCfd.dwOutSize = ehomeDeviceInfo.size();
+        strEhomeCfd.pInBuf = null;
+        strEhomeCfd.dwInSize = 0;
+        strEhomeCfd.write();
+
+
+        bRet = hcisupcms.NET_ECMS_GetDevConfig(loginId, 1, strEhomeCfd.getPointer(), strEhomeCfd.size());
+        if (!bRet) {
+            int dwErr = hcisupcms.NET_ECMS_GetLastError();
+            System.out.println("获取报警输入参数失败，Error:" + dwErr);
+        } else {
+            //  读取返回的数据
+            ehomeDeviceInfo.read();
+            System.out.println("语音对讲的音频格式:" + ehomeDeviceInfo.dwAudioEncType);
+            System.out.println("起始数字对讲通道号:" + ehomeDeviceInfo.byStartDTalkChan);
+        }
+        return ehomeDeviceInfo;
+    }
+
+    /**
+     * 录制电脑麦克风声音文件
+     *
+     * @param duration ：采集时长
+     */
+    private void makeVoice(int duration) {
+        int sampleRate = 8000; // 采样率
+        int bitsPerSample = 16; // 每样本比特数
+        int channels = 1; // 双声道
+        int frameSize = channels * bitsPerSample / 8; // 单个样本大小
+        boolean signed = true; // 有符号
+        boolean bigEndian = false; // 小端字节序
+
+        AudioFormat format = new AudioFormat(
+                sampleRate,
+                bitsPerSample,
+                channels,
+                signed,
+                bigEndian
+        );
+
+        DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
+
+        if (!AudioSystem.isLineSupported(info)) {
+            System.out.println("Line not supported");
+            return;
+        }
+
+        TargetDataLine line = null;
+        try {
+            line = (TargetDataLine) AudioSystem.getLine(info);
+            line.open(format);
+            line.start();
+
+            int bufferSize = (int) (format.getFrameRate() * format.getFrameSize()); // 计算缓冲区大小
+            byte[] buffer = new byte[bufferSize];
+
+            File file = new File(CommonMethod.getResFileAbsPath("audioFile/audioCollected.pcm")); // PCM文件路径
+            int numBytesRead = 0;
+            int totalBytesRead = 0;
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                while (totalBytesRead < format.getFrameRate() * format.getFrameSize() * duration && (numBytesRead = line.read(buffer, 0, buffer.length)) >= 0) {
+                    out.write(buffer, 0, numBytesRead);
+                    totalBytesRead += numBytesRead;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (line != null) {
+                line.stop();
+                line.close();
+            }
+        }
+    }
+
+    /**
+     * 开启语音转发
+     * 说明：byEncodingType为获取设备通道对讲信息中返回的编码格式，对应结构体NET_EHOME_DEVICE_INFO.dwAudioEncType;  // 语音对讲的音频格式：0-G.722，1-G.711U，2-G.711A，3-G.726，4-AAC，5-MP2L2。
+     * NET_EHOME_DEVICE_INFO.dwAudioEncType为1表示g711u，对应NET_EHOME_TALK_ENCODING_TYPE中为2表示g711u
+     * <p>
+     * typedef enum tagNET_EHOME_TALK_ENCODING_TYPE{
+     * ENUM_ENCODING_START = 0,
+     * ENUM_ENCODING_G722_1, = 1
+     * ENUM_ENCODING_G711_MU, = 2
+     * ENUM_ENCODING_G711_A, = 3
+     * ENUM_ENCODING_G723, = 4
+     * ENUM_ENCODING_MP1L2, = 5
+     * ENUM_ENCODING_MP2L2, = 6
+     * ENUM_ENCODING_G726, = 7
+     * ENUM_ENCODING_AAC, = 8
+     * ENUM_ENCODING_RAW = 100
+     * }NET_EHOME_TALK_ENCODING_TYPE;
+     */
+//    private void StartVoiceTrans(int dwVoiceChan, byte byEncodingType) throws InterruptedException {
+//        byEncodingType = (byte) (byEncodingType + 1); //这里是将NET_EHOME_DEVICE_INFO.dwAudioEncType跟byEncodingType值对齐，区别见结构体NET_EHOME_DEVICE_INFO和NET_EHOME_TALK_ENCODING_TYPE的定义
+//        // 语音对讲开启请求的输入参数
+//        NET_EHOME_VOICE_TALK_IN net_ehome_voice_talk_in = new NET_EHOME_VOICE_TALK_IN();
+//        net_ehome_voice_talk_in.struStreamSever.szIP = hikIsupProperties.getVoiceSmsServer().getIp().getBytes();
+//        net_ehome_voice_talk_in.struStreamSever.wPort = Short.parseShort(hikIsupProperties.getVoiceSmsServer().getPort());
+//        net_ehome_voice_talk_in.dwVoiceChan = dwVoiceChan; //语音通道号,NVR设备起始通道号为3，dwVoiceChan传6对应nvr的通道4
+//        net_ehome_voice_talk_in.byEncodingType[0] = byEncodingType;  //跟NVR通道对讲必须带上此参数，ENUM_ENCODING_G722_1 = 1；ENUM_ENCODING_G711_MU = 2 ；ENUM_ENCODING_G711_A = 3
+////        net_ehome_voice_talk_in.byAudioSamplingRate = 5;
+//        net_ehome_voice_talk_in.write();
+//        // 语音对讲开启请求的输出参数
+//        NET_EHOME_VOICE_TALK_OUT net_ehome_voice_talk_out = new NET_EHOME_VOICE_TALK_OUT();
+//        // 将语音对讲开启请求从CMS 发送给设备发送SMS 的地址和端口号给设备，设备自动为CMS 分配一个会话ID。
+//        if (!hcisupcms.NET_ECMS_StartVoiceWithStmServer(IsupTest.lLoginID, net_ehome_voice_talk_in, net_ehome_voice_talk_out)) {
+//            System.out.println("NET_ECMS_StartVoiceWithStmServer failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
+//            return;
+//        } else {
+//            net_ehome_voice_talk_out.read();
+//            System.out.println("NET_ECMS_StartVoiceWithStmServer suss sessionID=" + net_ehome_voice_talk_out.lSessionID);
+//        }
+//
+//        // 语音传输请求的输入参数
+//        NET_EHOME_PUSHVOICE_IN struPushVoiceIn = new NET_EHOME_PUSHVOICE_IN();
+//        struPushVoiceIn.dwSize = struPushVoiceIn.size();
+//        struPushVoiceIn.lSessionID = net_ehome_voice_talk_out.lSessionID;
+//        voiceTalkSessionId = net_ehome_voice_talk_out.lSessionID;
+//        struPushVoiceIn.write();
+//        // 语音传输请求的输出参数
+//        NET_EHOME_PUSHVOICE_OUT struPushVoiceOut = new NET_EHOME_PUSHVOICE_OUT();
+//        struPushVoiceOut.dwSize = struPushVoiceOut.size();
+//        struPushVoiceOut.write();
+//        // 将语音传输请求从CMS 发送给设备。设备自动连接SMS 并开始发送音频数据给SMS
+//        if (!hcisupcms.NET_ECMS_StartPushVoiceStream(IsupTest.lLoginID, struPushVoiceIn, struPushVoiceOut)) {
+//            System.out.println("NET_ECMS_StartPushVoiceStream failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
+//            return;
+//        }
+//        System.out.println("NET_ECMS_StartPushVoiceStream success!\n");
+//
+//        //发送音频数据
+//        FileInputStream voiceInputStream = null;
+//        int dataLength = 0;
+//        try {
+//            //创建从文件读取数据的FileInputStream流
+////            voiceInputStream = new FileInputStream(CommonMethod.getResFileAbsPath("audioFile/twoWayTalk.g7"));
+//            voiceInputStream = new FileInputStream(CommonMethod.getResFileAbsPath("audioFile/audioCollected.pcm"));
+//            //返回文件的总字节数
+//            dataLength = voiceInputStream.available();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//        fileEncode = new File(System.getProperty("user.dir") + "\\resources\\audioFile\\EncodedAudioData.g7");  //保存音频编码数据
+//
+//        if (!fileEncode.exists()) {
+//            try {
+//                fileEncode.createNewFile();
+//            } catch (IOException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        try {
+//            outputStreamG711 = new FileOutputStream(fileEncode);
+//        } catch (FileNotFoundException e3) {
+//            // TODO Auto-generated catch block
+//            e3.printStackTrace();
+//        }
+//
+//        if (dataLength < 0) {
+//            System.out.println("input file dataSize < 0");
+//            throw new RuntimeException("输入的文件");
+////            return false;
+//        }
+//
+//        BYTE_ARRAY ptrVoiceByte = new BYTE_ARRAY(dataLength);
+//        try {
+//            voiceInputStream.read(ptrVoiceByte.byValue);
+//        } catch (IOException e2) {
+//            e2.printStackTrace();
+//        }
+//        ptrVoiceByte.write();
+//
+//        int iEncodeSize = 0;
+//        NET_DVR_AUDIOENC_INFO enc_info = new NET_DVR_AUDIOENC_INFO();
+//        enc_info.write();
+//
+//        boolean initSuc = hCNetSDK.NET_DVR_Init();
+//        if (!initSuc) {
+//            System.out.println("初始化失败");
+//            return;
+//        }
+//        hCNetSDK.NET_DVR_SetLogToFile(3, "./sdklog", false);
+//        Pointer encoder = hCNetSDK.NET_DVR_InitG711Encoder(enc_info);
+//        while ((dataLength - iEncodeSize) > 640) {
+//            BYTE_ARRAY ptrPcmData = new BYTE_ARRAY(640);
+//            System.arraycopy(ptrVoiceByte.byValue, iEncodeSize, ptrPcmData.byValue, 0, 640);
+//            ptrPcmData.write();
+//
+//            BYTE_ARRAY ptrG711Data = new BYTE_ARRAY(320);
+//            ptrG711Data.write();
+//
+//            NET_DVR_AUDIOENC_PROCESS_PARAM struEncParam = new NET_DVR_AUDIOENC_PROCESS_PARAM();
+//            struEncParam.in_buf = ptrPcmData.getPointer();
+//            struEncParam.out_buf = ptrG711Data.getPointer();
+//            struEncParam.out_frame_size = 320;
+//            struEncParam.g711_type = 0;//G711编码类型：0- U law，1- A law
+//            struEncParam.write();
+//
+//            if (!hCNetSDK.NET_DVR_EncodeG711Frame(encoder, struEncParam)) {
+//                System.out.println("NET_DVR_EncodeG711Frame failed, error code:" + hCNetSDK.NET_DVR_GetLastError());
+//                hCNetSDK.NET_DVR_ReleaseG711Encoder(encoder);
+//            }
+//            struEncParam.read();
+//            ptrG711Data.read();
+//
+//            long offsetG711 = 0;
+//            ByteBuffer buffersG711 = struEncParam.out_buf.getByteBuffer(offsetG711, struEncParam.out_frame_size);
+//            byte[] bytesG711 = new byte[struEncParam.out_frame_size];
+//            buffersG711.rewind();
+//            buffersG711.get(bytesG711);
+//            try {
+//                outputStreamG711.write(bytesG711);
+//            } catch (IOException e1) {
+//                // TODO Auto-generated catch block
+//                e1.printStackTrace();
+//            }
+//            iEncodeSize += 640;
+//            System.out.println("编码字节数：" + iEncodeSize);
+//
+//            for (int i = 0; i < struEncParam.out_frame_size / 160; i++) {
+//                HCISUPStream.BYTE_ARRAY ptrG711Send = new HCISUPStream.BYTE_ARRAY(160);
+//                System.arraycopy(ptrG711Data.byValue, i * 160, ptrG711Send.byValue, 0, 160);
+//                ptrG711Send.write();
+//                HCISUPStream.NET_EHOME_VOICETALK_DATA struVoicTalkData = new HCISUPStream.NET_EHOME_VOICETALK_DATA();
+//                struVoicTalkData.pData = ptrG711Send.getPointer();
+//                struVoicTalkData.dwDataLen = 160;
+//                struVoicTalkData.write();
+//                // 将音频数据发送给设备
+//                if (hCEhomeVoice.NET_ESTREAM_SendVoiceTalkData(lVoiceLinkHandle, struVoicTalkData) <= -1) {
+//                    System.out.println("NET_ESTREAM_SendVoiceTalkData failed, error code:" + hCEhomeVoice.NET_ESTREAM_GetLastError());
+//                }
+//
+//                //需要实时速率发送数据
+//                try {
+//                    Thread.sleep(20);
+//                } catch (InterruptedException e) {
+//                    // TODO Auto-generated catch block
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//    }
+//
+//    /**
+//     * 停止语音对讲
+//     */
+//    private void StopVoiceTrans() {
+//        //SMS 停止语音对讲
+//        if (lVoiceLinkHandle >= 0) {
+//            if (!hCEhomeVoice.NET_ESTREAM_StopVoiceTalk(lVoiceLinkHandle)) {
+//                System.out.println("NET_ESTREAM_StopVoiceTalk failed, error code:" + hCEhomeVoice.NET_ESTREAM_GetLastError());
+//                return;
+//            }
+//        }
+//        //释放语音对讲请求资源
+//        if (!hcisupcms.NET_ECMS_StopVoiceTalkWithStmServer(IsupTest.lLoginID, voiceTalkSessionId)) {
+//            System.out.println("NET_ECMS_StopVoiceTalkWithStmServer failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
+//            return;
+//        }
+//        // 释放SDK资源
+//        hCNetSDK.NET_DVR_Cleanup();
+//    }
 }

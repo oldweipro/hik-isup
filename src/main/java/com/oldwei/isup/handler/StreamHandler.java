@@ -1,5 +1,6 @@
 package com.oldwei.isup.handler;
 
+import com.oldwei.isup.sdk.StreamManager;
 import lombok.extern.slf4j.Slf4j;
 import org.bytedeco.ffmpeg.avcodec.AVPacket;
 import org.bytedeco.ffmpeg.avformat.AVFormatContext;
@@ -28,16 +29,18 @@ public class StreamHandler {
     public Thread thread;
     private int count;
     public String pushAddress;
+    public Integer sessionId;
 
     private CompletableFuture<String> completableFutureString;
 
-    public StreamHandler(String address, CompletableFuture<String> completableFuture) {
+    public StreamHandler(String address, CompletableFuture<String> completableFuture, Integer sessionId) {
         try {
             completableFutureString = completableFuture;
             pushAddress = address;
             outputStream = new PipedOutputStream();
             inputStream = new PipedInputStream(outputStream, 4096 * 10);
             running = true;
+            this.sessionId = sessionId;
             log.info("创建视频流处理类对象: {}", outputStream.hashCode());
             startProcessing();
         } catch (IOException e) {
@@ -47,6 +50,11 @@ public class StreamHandler {
 
 
     public void processStream(byte[] data) {
+        // 判断byte[] data是否为空
+        if (data == null || data.length == 0) {
+            // data 为空
+            log.info("收到空数据包，忽略处理");
+        }
         if (!running || outputStream == null) {
             log.debug("推流已停止，忽略数据包");
             return;
@@ -55,7 +63,7 @@ public class StreamHandler {
             outputStream.write(data);
         } catch (IOException e) {
             if ("Pipe closed".equals(e.getMessage())) {
-                log.warn("Pipe 已关闭（可能是grabber线程已退出）");
+                log.warn("这里Pipe 已关闭（可能是grabber线程已退出）");
                 running = false;
             } else {
                 log.error("写入Pipe异常: {}", e.getMessage(), e);
@@ -68,7 +76,7 @@ public class StreamHandler {
             try {
 //           打印FFmpeg日志可以帮助确定输入流的音视频编码格式帧率等信息,需要时可以取消注释
 //            avutil.av_log_set_level(avutil.AV_LOG_INFO);
-//            FFmpegLogCallback.set();
+//                FFmpegLogCallback.set();
                 grabber = new FFmpegFrameGrabber(inputStream, 0);
                 grabber.setOption("rtsp_transport", "tcp"); // 设置RTSP传输协议为TCP
 //            grabber.setVideoCodec(avcodec.AV_CODEC_ID_H264); // 设置视频编解码器为H.264
@@ -79,9 +87,9 @@ public class StreamHandler {
                 // 获取输入格式上下文
                 AVFormatContext ifmt_ctx = grabber.getFormatContext();
 
-                log.info("视频宽度:" + grabber.getImageWidth());
-                log.info("视频高度:" + grabber.getImageHeight());
-                log.info("音频通道:" + grabber.getAudioChannels());
+                log.info("视频宽度: {}", grabber.getImageWidth());
+                log.info("视频高度: {}", grabber.getImageHeight());
+                log.info("音频通道: {}", grabber.getAudioChannels());
 
                 recorder = new FFmpegFrameRecorder(pushAddress, grabber.getImageWidth(), grabber.getImageHeight(), grabber.getAudioChannels());
                 recorder.setInterleaved(true);  // 设置音视频交织方式
@@ -108,18 +116,19 @@ public class StreamHandler {
                 long t1 = System.currentTimeMillis();
                 AVPacket packet;
                 while (running && (packet = grabber.grabPacket()) != null) {
-
                     count++;
                     recorder.recordPacket(packet);
                     completableFutureString.complete("true");//运行到这说明推流成功了
-                    if (count % 100 == 0) {
-                        // 处理每帧
-                        log.info("packet推流帧====>" + count);
-                    }
+//                    if (count % 100 == 0) {
+//                        // 处理每帧
+//                        log.info("packet推流帧====>{}", count);
+//                    }
                 }
+                log.info("所以这里是推流结束了====>，总帧数: {}, 用时: {} ms", count, (System.currentTimeMillis() - t1));
+                log.info("那么running的状态是：{}, grabPacket是不是为空呢: {}", running, grabber.grabPacket() != null);
             } catch (Exception e) {
                 completableFutureString.complete("false");//运行到这说明推流异常,需要反馈到前端
-                log.error(e.getMessage(), e);
+                log.error("推流线程异常: {}", e.getMessage());
             } finally {
                 try {
                     if (grabber != null) {
@@ -131,14 +140,20 @@ public class StreamHandler {
                         recorder.release();
                     }
                 } catch (Exception e) {
-                    log.error(e.getMessage());
+                    log.warn("销毁捕流器和推流器异常:: {}", e.getMessage());
                 } finally {
                     try {
+                        log.warn("inputStream 和 outputStream 关闭");
                         inputStream.close();
                         outputStream.close();
                     } catch (IOException e) {
                         log.error(e.getMessage());
                     }
+                }
+                // 这个sessionId可能会和直播预览的串联起来
+                if (sessionId != null) {
+                    log.info("推流线程结束，设置回放停止标志sessionId={}", sessionId);
+                    StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionId, true);
                 }
             }
         });

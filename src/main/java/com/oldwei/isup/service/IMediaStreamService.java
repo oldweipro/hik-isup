@@ -12,7 +12,11 @@ public interface IMediaStreamService {
 
     void stopPreview(Device device);
 
-    void playbackByTime(Integer deviceId, Integer channelId, String startTime, String endTime);
+    void playbackByTime(String deviceId, Integer loginId, Integer channelId, String startTime, String endTime);
 
     void stopPlayBackByTime(Integer device);
+
+    void waitingForPlayback(Integer loginId);
+
+    void voiceTrans(Integer loginId);
 }
