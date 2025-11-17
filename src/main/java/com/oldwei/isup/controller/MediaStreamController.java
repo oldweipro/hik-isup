@@ -160,4 +160,10 @@ public class MediaStreamController {
         deviceRemoteControl.setIsOnline(0);
         return deviceRemoteControl;
     }
+
+    @GetMapping("/voiceTrans/{deviceId}")
+    public void voiceTrans(@PathVariable String deviceId) {
+        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        deviceOpt.ifPresent(device -> mediaStreamService.voiceTrans(device.getLoginId()));
+    }
 }

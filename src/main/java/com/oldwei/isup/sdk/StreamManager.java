@@ -21,4 +21,6 @@ public class StreamManager {
     public static Map<Integer, Integer> playbackPreviewHandSAndSessionIDandMap = new HashMap<>();
     public static Map<Integer, Integer> playbackSessionIDAndPreviewHandleMap = new HashMap<>();
     public static Map<Integer, Boolean> playbackLoginchannelIdAndstopflag = new HashMap<>();
+
+    public static int lVoiceLinkHandle = -1;
 }

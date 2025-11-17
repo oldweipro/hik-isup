@@ -1,5 +1,6 @@
 package com.oldwei.isup.sdk.service.impl;
 
+import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.service.VOICETALK_DATA_CB;
 import com.oldwei.isup.sdk.service.VOICETALK_NEWLINK_CB;
@@ -17,8 +18,9 @@ public class VoiceCallBackImpl implements VOICETALK_NEWLINK_CB {
 
     public boolean invoke(int lHandle, NET_EHOME_VOICETALK_NEWLINK_CB_INFO pNewLinkCBInfo, Pointer pUserData) {
         System.out.println("fVOICE_NEWLINK_CB callback");
-        int lVoiceLinkHandle = -1;
-        lVoiceLinkHandle = lHandle;
+        StreamManager.lVoiceLinkHandle = lHandle;
+//        int lVoiceLinkHandle = -1;
+//        lVoiceLinkHandle = lHandle;
         NET_EHOME_VOICETALK_DATA_CB_PARAM net_ehome_voicetalk_data_cb_param = new NET_EHOME_VOICETALK_DATA_CB_PARAM();
 
         net_ehome_voicetalk_data_cb_param.fnVoiceTalkDataCB = voiceTalkDataCallBack;

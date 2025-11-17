@@ -274,8 +274,9 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         int dwVoiceChan = res.byStartDTalkChan + 3;
         byte dwAudioEncType = (byte) res.dwAudioEncType;
 
-        StartVoiceTrans(loginId, dwVoiceChan, dwAudioEncType);
-        StopVoiceTrans(loginId);
+        int voiceTalkSessionId = StartVoiceTrans(loginId, dwVoiceChan, dwAudioEncType);
+
+        StopVoiceTrans(loginId, voiceTalkSessionId, StreamManager.lVoiceLinkHandle);
     }
 
     private NET_EHOME_DEVICE_INFO getDeviceInfo(Integer loginId) {
@@ -383,7 +384,8 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * ENUM_ENCODING_RAW = 100
      * }NET_EHOME_TALK_ENCODING_TYPE;
      */
-    private void StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType) {
+    private int StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType) {
+        int voiceTalkSessionId = -1;
         byEncodingType = (byte) (byEncodingType + 1); //这里是将NET_EHOME_DEVICE_INFO.dwAudioEncType跟byEncodingType值对齐，区别见结构体NET_EHOME_DEVICE_INFO和NET_EHOME_TALK_ENCODING_TYPE的定义
         // 语音对讲开启请求的输入参数
         NET_EHOME_VOICE_TALK_IN net_ehome_voice_talk_in = new NET_EHOME_VOICE_TALK_IN();
@@ -398,7 +400,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         // 将语音对讲开启请求从CMS 发送给设备发送SMS 的地址和端口号给设备，设备自动为CMS 分配一个会话ID。
         if (!hcisupcms.NET_ECMS_StartVoiceWithStmServer(loginId, net_ehome_voice_talk_in, net_ehome_voice_talk_out)) {
             System.out.println("NET_ECMS_StartVoiceWithStmServer failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
-            return;
+            return voiceTalkSessionId;
         } else {
             net_ehome_voice_talk_out.read();
             System.out.println("NET_ECMS_StartVoiceWithStmServer suss sessionID=" + net_ehome_voice_talk_out.lSessionID);
@@ -408,7 +410,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         NET_EHOME_PUSHVOICE_IN struPushVoiceIn = new NET_EHOME_PUSHVOICE_IN();
         struPushVoiceIn.dwSize = struPushVoiceIn.size();
         struPushVoiceIn.lSessionID = net_ehome_voice_talk_out.lSessionID;
-        int lVoiceLinkHandle = net_ehome_voice_talk_out.lSessionID;
+        voiceTalkSessionId = net_ehome_voice_talk_out.lSessionID;
         struPushVoiceIn.write();
         // 语音传输请求的输出参数
         NET_EHOME_PUSHVOICE_OUT struPushVoiceOut = new NET_EHOME_PUSHVOICE_OUT();
@@ -417,7 +419,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         // 将语音传输请求从CMS 发送给设备。设备自动连接SMS 并开始发送音频数据给SMS
         if (!hcisupcms.NET_ECMS_StartPushVoiceStream(loginId, struPushVoiceIn, struPushVoiceOut)) {
             System.out.println("NET_ECMS_StartPushVoiceStream failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
-            return;
+            return voiceTalkSessionId;
         }
         System.out.println("NET_ECMS_StartPushVoiceStream success!\n");
 
@@ -473,7 +475,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         boolean initSuc = hikNet.NET_DVR_Init();
         if (!initSuc) {
             System.out.println("初始化失败");
-            return;
+            return voiceTalkSessionId;
         }
         hikNet.NET_DVR_SetLogToFile(3, "./sdklog", false);
         Pointer encoder = hikNet.NET_DVR_InitG711Encoder(enc_info);
@@ -522,7 +524,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 struVoicTalkData.dwDataLen = 160;
                 struVoicTalkData.write();
                 // 将音频数据发送给设备
-                if (hikISUPStream.NET_ESTREAM_SendVoiceTalkData(lVoiceLinkHandle, struVoicTalkData) <= -1) {
+                if (hikISUPStream.NET_ESTREAM_SendVoiceTalkData(StreamManager.lVoiceLinkHandle, struVoicTalkData) <= -1) {
                     System.out.println("NET_ESTREAM_SendVoiceTalkData failed, error code:" + hikISUPStream.NET_ESTREAM_GetLastError());
                 }
 
@@ -535,12 +537,13 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 }
             }
         }
+        return voiceTalkSessionId;
     }
 
     /**
      * 停止语音对讲
      */
-    private void StopVoiceTrans(int loginId, int lVoiceLinkHandle, int voiceTalkSessionId) {
+    private void StopVoiceTrans(int loginId, int voiceTalkSessionId, int lVoiceLinkHandle) {
         //SMS 停止语音对讲
         if (lVoiceLinkHandle >= 0) {
             if (!hikISUPStream.NET_ESTREAM_StopVoiceTalk(lVoiceLinkHandle)) {
