@@ -31,6 +31,9 @@ public class PlaybackController {
 
     @GetMapping("start")
     public R<PlayURL> playbackByTime(String deviceId, String startTime, String endTime) {
+        if (deviceId == null || deviceId.isEmpty()) {
+            return R.fail("Device ID cannot be null or empty");
+        }
         try {
             // 防止传 null 或未编码的情况
             if (startTime != null) {
@@ -53,12 +56,10 @@ public class PlaybackController {
             Integer sessionId = StreamManager.playbackUserIDandSessionMap.get(loginId);
             if (sessionId == null) {
                 mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
-                mediaStreamService.waitingForPlayback(loginId);
             } else {
                 StreamHandler streamHandler = StreamManager.playbackConcurrentMap.get(sessionId);
                 if (streamHandler == null) {
                     mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
-                    mediaStreamService.waitingForPlayback(loginId);
                 }
             }
         } else {

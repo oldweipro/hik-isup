@@ -53,4 +53,6 @@ public interface HCISUPCMS extends Library {
 
     boolean NET_ECMS_StartPushVoiceStream(int lUserID, NET_EHOME_PUSHVOICE_IN lpPushParamIn, NET_EHOME_PUSHVOICE_OUT lpPushParamOut);
 
+    boolean NET_ECMS_StopVoiceTalkWithStmServer(int lUserID, int lSessionID);
+
 }

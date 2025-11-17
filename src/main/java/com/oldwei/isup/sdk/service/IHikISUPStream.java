@@ -66,4 +66,8 @@ public interface IHikISUPStream extends Library {
     boolean NET_ESTREAM_SetPlayBackDataCB(int iPlayBackLinkHandle, NET_EHOME_PLAYBACK_DATA_CB_PARAM pDataCBParam);
 
     boolean NET_ESTREAM_StopPlayBack(int iPlayBackLinkHandle);
+
+    int NET_ESTREAM_SendVoiceTalkData(int lHandle, NET_EHOME_VOICETALK_DATA pVoicTalkData);
+
+    boolean NET_ESTREAM_StopVoiceTalk(int lHandle);
 }

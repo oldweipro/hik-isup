@@ -129,10 +129,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
                     .set(Device::getIsOnline, 0)
                     .set(Device::getLoginId, -1)
                     .set(Device::getChannel, -1)
-                    .set(Device::getIsPush, -1)
-                    .set(Device::getPreviewHandle, -1)
-                    .set(Device::getPreviewListenHandle, -1)
-                    .set(Device::getPreviewSessionId, -1)
                     .update();
             if (updated) {
                 log.info("重置设备状态完成");

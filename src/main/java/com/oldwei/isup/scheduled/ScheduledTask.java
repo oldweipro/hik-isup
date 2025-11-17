@@ -1,13 +1,18 @@
 package com.oldwei.isup.scheduled;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.oldwei.isup.config.HikPlatformProperties;
 import com.oldwei.isup.model.Device;
+import com.oldwei.isup.model.vo.UploadData;
 import com.oldwei.isup.model.xml.DeviceInfo;
 import com.oldwei.isup.model.xml.InputProxyChannelStatusList;
 import com.oldwei.isup.model.xml.PpvspMessage;
+import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.isapi.ISAPIService;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
 import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.IMediaStreamService;
+import com.oldwei.isup.util.WebFluxHttpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +32,8 @@ public class ScheduledTask {
     private final CmsUtil cmsUtil;
     private final IDeviceService deviceService;
     private final ISAPIService isapiService;
+    private final IMediaStreamService mediaStreamService;
+    private final HikPlatformProperties hikPlatformProperties;
 
     // Cron表达式范例：
     //
@@ -109,6 +116,52 @@ public class ScheduledTask {
                     }
                     default -> log.info("设备类型未知: {}", xmlContent.getDeviceType());
                 }
+            }
+        });
+    }
+
+    @Scheduled(cron = "*/3 * * * * ?")
+    public void stopPreview() {
+        // 每隔3秒钟扫描一次设备
+        List<Device> list = deviceService.list(new LambdaQueryWrapper<Device>().gt(Device::getLoginId, -1).eq(Device::getIsOnline, 1));
+        if (list.isEmpty()) return;
+        list.forEach((device) -> {
+            int loginId = device.getLoginId();
+            int channelId = device.getChannel();
+            int loginchannelId = loginId * 100 + channelId;
+
+//            log.info("检查设备{}-{} 是否需要停止预览", device.getDeviceId(), channelId);
+            Boolean flag = StreamManager.loginchannelIdAndstopflag.get(loginchannelId);
+            if (flag != null && flag) {
+                log.info("设备{}-{} 停止预览", device.getDeviceId(), channelId);
+                UploadData uploadData = new UploadData();
+                uploadData.setDataType("PushStreamStop");
+                uploadData.setData(device.getDeviceId());
+                String pushPath = hikPlatformProperties.getPushAddress();
+                WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
+                    log.info("推送到 {} 返回结果：{}", pushPath, resp);
+                }, error -> {
+                    log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
+                });
+                StreamManager.loginchannelIdAndstopflag.remove(loginchannelId);
+                mediaStreamService.stopPreview(device);
+            }
+        });
+    }
+
+    @Scheduled(cron = "*/3 * * * * ?")
+    public void stopPlaybackPreview() {
+        // 每隔3秒钟扫描一次设备
+        List<Device> list = deviceService.list(new LambdaQueryWrapper<Device>().gt(Device::getLoginId, -1).eq(Device::getIsOnline, 1));
+        if (list.isEmpty()) return;
+        list.forEach((device) -> {
+            int loginId = device.getLoginId();
+            int channelId = device.getChannel();
+            int loginchannelId = loginId * 100 + channelId;
+
+            Boolean flag = StreamManager.playbackLoginchannelIdAndstopflag.get(loginchannelId);
+            if (flag != null && flag) {
+                mediaStreamService.stopPlayBackByTime(loginId);
             }
         });
     }

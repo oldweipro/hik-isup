@@ -16,7 +16,5 @@ public interface IMediaStreamService {
 
     void stopPlayBackByTime(Integer device);
 
-    void waitingForPlayback(Integer loginId);
-
     void voiceTrans(Integer loginId);
 }

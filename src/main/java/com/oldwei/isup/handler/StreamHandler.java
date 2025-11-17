@@ -29,19 +29,20 @@ public class StreamHandler {
     public Thread thread;
     private int count;
     public String pushAddress;
-    public Integer sessionId;
+    public Integer streamType; // 1:预览 2:回放
+    public Integer loginchannelId;
 
     private CompletableFuture<String> completableFutureString;
 
-    public StreamHandler(String address, CompletableFuture<String> completableFuture, Integer sessionId) {
+    public StreamHandler(String address, CompletableFuture<String> completableFuture, Integer streamType, Integer loginchannelId) {
         try {
             completableFutureString = completableFuture;
             pushAddress = address;
             outputStream = new PipedOutputStream();
-            inputStream = new PipedInputStream(outputStream, 4096 * 10);
+            inputStream = new PipedInputStream(outputStream, 4096 * 5);
             running = true;
-            this.sessionId = sessionId;
-            log.info("创建视频流处理类对象: {}", outputStream.hashCode());
+            this.streamType = streamType;
+            this.loginchannelId = loginchannelId;
             startProcessing();
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize piped streams", e);
@@ -63,7 +64,7 @@ public class StreamHandler {
             outputStream.write(data);
         } catch (IOException e) {
             if ("Pipe closed".equals(e.getMessage())) {
-                log.warn("这里Pipe 已关闭（可能是grabber线程已退出）");
+                log.warn("这里Pipe 已关闭（可能是grabber线程已退出），outputStream是否为null: {}，inputStream是否为null: {}, data数据是否为孔：{}, grabber是否为null:{}", outputStream == null, inputStream == null, data.length == 0, grabber == null);
                 running = false;
             } else {
                 log.error("写入Pipe异常: {}", e.getMessage(), e);
@@ -125,7 +126,7 @@ public class StreamHandler {
 //                    }
                 }
                 log.info("所以这里是推流结束了====>，总帧数: {}, 用时: {} ms", count, (System.currentTimeMillis() - t1));
-                log.info("那么running的状态是：{}, grabPacket是不是为空呢: {}", running, grabber.grabPacket() != null);
+                log.info("那么running的状态是：{}, grabPacket是不是为空呢: {}", running, grabber.grabPacket() == null);
             } catch (Exception e) {
                 completableFutureString.complete("false");//运行到这说明推流异常,需要反馈到前端
                 log.error("推流线程异常: {}", e.getMessage());
@@ -150,10 +151,11 @@ public class StreamHandler {
                         log.error(e.getMessage());
                     }
                 }
-                // 这个sessionId可能会和直播预览的串联起来
-                if (sessionId != null) {
-                    log.info("推流线程结束，设置回放停止标志sessionId={}", sessionId);
-                    StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionId, true);
+                // 定时任务会去刷这个状态来决定是否关闭推流相关
+                if (streamType != null && streamType == 1) {
+                    StreamManager.loginchannelIdAndstopflag.put(loginchannelId, true);
+                } else if (streamType != null && streamType == 2) {
+                    StreamManager.playbackLoginchannelIdAndstopflag.put(loginchannelId, true);
                 }
             }
         });

@@ -67,25 +67,27 @@ public class MediaStreamController {
         Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
-            // TODO 应该直接查询内存中是否存在
-            StreamHandler streamHandler = StreamManager.concurrentMap.get(device.getLoginId());
-            if (device.getIsOnline() == 1) {
-                if (streamHandler == null) {
-                    device.setIsPush(1);
-                    deviceService.updateById(device);
-                    mediaStreamService.preview(device);
-                }
-                PlayURL playURL = new PlayURL();
-//                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
-                playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId());
-                playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/live/" + device.getDeviceId() + ".live.flv");
-                return R.ok(playURL);
+            Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + device.getChannel());
+            if (sessionId == null) {
+                mediaStreamService.preview(device);
             } else {
-                return R.fail("设备不在线，无法预览");
+                StreamHandler streamHandler = StreamManager.concurrentMap.get(sessionId);
+                if (device.getIsOnline() == 1) {
+                    if (streamHandler == null) {
+                        log.info("设备{}预览流不存在，开始创建预览流", deviceId);
+                        mediaStreamService.preview(device);
+                    }
+                } else {
+                    return R.fail("设备不在线，无法预览");
+                }
             }
-        } else {
-            return R.fail("设备不存在，无法预览");
+            PlayURL playURL = new PlayURL();
+//                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
+            playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId());
+            playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/live/" + device.getDeviceId() + ".live.flv");
+            return R.ok(playURL);
         }
+        return R.fail("设备不存在，无法预览");
     }
 
     @DeleteMapping("/preview/{deviceId}")

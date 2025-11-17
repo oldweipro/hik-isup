@@ -27,10 +27,6 @@ public class Device implements Serializable {
      */
     private String deviceId;
     /**
-     * 是否推流
-     */
-    private Integer isPush;
-    /**
      * 是否在线
      */
     private Integer isOnline;
@@ -42,16 +38,4 @@ public class Device implements Serializable {
      * 通道号
      */
     private Integer channel;
-    /**
-     * sessionId
-     */
-    private Integer previewSessionId;
-    /**
-     * listenHandle
-     */
-    private Integer previewListenHandle;
-    /**
-     * previewHandle
-     */
-    private Integer previewHandle;
 }

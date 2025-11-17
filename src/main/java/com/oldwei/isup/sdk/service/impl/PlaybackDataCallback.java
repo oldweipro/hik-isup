@@ -23,7 +23,8 @@ public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
         switch (pDataCBInfo.dwType) {
             case 1:
                 // 初始化回放标记
-                StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionID, false);
+                StreamManager.playbackUserIDandSessionMap.get(sessionID);
+//                StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionID, false);
                 break;
             case 2:
                 iCount++;
@@ -47,7 +48,7 @@ public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
                 break;
             case 3:  // 视频流结束标记
                 System.err.println("收到回放结束信令！");
-                StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionID, true);
+//                StreamManager.playbackSessionIDAndStopPlaybackFlagMap.put(sessionID, true);
                 break;
         }
         return true;

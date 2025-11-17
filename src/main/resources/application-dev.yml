@@ -55,6 +55,8 @@ mybatis-plus:
       idType: ASSIGN_ID
 
 hik:
+  platform:
+    pushAddress: http://192.168.2.47:9080/iot/event/HK/callback
   stream:
     rtmp:
       #      公网对接填入公网地址
