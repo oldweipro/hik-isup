@@ -292,7 +292,7 @@ public class CmsUtil {
         FileInputStream picfile = null;
         int picdataLength = 0;
         try {
-            picfile = new FileInputStream(CommonMethod.getResFileAbsPath("pics/FDLib.jpg"));
+            picfile = new FileInputStream(CommonMethod.getResFileAbsPath("resources/pics/FDLib.jpg"));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }

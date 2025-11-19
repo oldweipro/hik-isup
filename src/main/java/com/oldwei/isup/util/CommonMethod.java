@@ -69,9 +69,9 @@ public class CommonMethod {
             throw new RuntimeException("filePath null error!");
         }
         if (OsSelect.isWindows()) {
-            return System.getProperty("user.dir") + "\\resources\\" + filePath;
+            return System.getProperty("user.dir") + "\\" + filePath;
         }
-        return System.getProperty("user.dir") + "/resources/" + filePath;
+        return System.getProperty("user.dir") + "/" + filePath;
     }
 
     /**

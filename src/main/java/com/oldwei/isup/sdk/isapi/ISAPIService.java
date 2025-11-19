@@ -186,18 +186,21 @@ public class ISAPIService {
      *
      * @param lUserID
      */
-    public String asyncImportDatas(int lUserID) {
+    public String asyncImportDatas(Integer lUserID, String xmlUrl) {
         String searchLPListAuditURL = "POST /ISAPI/Intelligent/FDLib/asyncImportDatas?format=json";
-        String FDSearchDescription = """
+        String faceLibId = "brecorder";
+        String taskId = "1ad321f56dssfd1dsc";
+        String FDSearchDescription = String.format("""
                 {
-                	"AsyncImportDatas": {
-                		"customFaceLibID": "1",
-                		"taskID": "1ad321f56dssfd1dsc",
-                		"URL": "http://192.168.2.235:6120/pic?30190B1646265D539404C99C4530781C",
-                		"type": 0,
-                		"URLCertificationType": "AWS2_0"
-                	}
-                }""";
+                    "AsyncImportDatas": {
+                        "customFaceLibID": "%s",
+                        "taskID": "%s",
+                        "URL": "%s",
+                        "type": 0,
+                        "URLCertificationType": "AWS2_0"
+                    }
+                }
+                """, faceLibId, taskId, xmlUrl);
         return cmsUtil.passThrough(lUserID, searchLPListAuditURL, FDSearchDescription);
     }
 }

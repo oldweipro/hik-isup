@@ -42,6 +42,7 @@ class Candidate {
     private Double similarity;
     private ReserveField reserve_field;
     private String customHumanID;
+    private String customFaceLibID;
 }
 
 @Data

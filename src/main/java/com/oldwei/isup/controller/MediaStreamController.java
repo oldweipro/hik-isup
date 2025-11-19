@@ -18,15 +18,22 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -37,6 +44,8 @@ public class MediaStreamController {
     private final CmsUtil cmsUtil;
     private final IDeviceService deviceService;
     private final HikStreamProperties hikStreamProperties;
+
+    private static final String UPLOAD_DIR = "upload/audio/";
 
     @GetMapping("/deviceList")
     public R<List<Device>> getDeviceList(Device device) {
@@ -161,9 +170,104 @@ public class MediaStreamController {
         return deviceRemoteControl;
     }
 
-    @GetMapping("/voiceTrans/{deviceId}")
-    public void voiceTrans(@PathVariable String deviceId) {
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
-        deviceOpt.ifPresent(device -> mediaStreamService.voiceTrans(device.getLoginId()));
+//    @PostMapping("/voiceTrans/{deviceId}")
+//    public Mono<R<String>> voiceTrans(
+//            @PathVariable String deviceId,
+//            @RequestPart("file") FilePart filePart) {
+//
+//        // 1. 生成唯一文件名
+//        String originalFilename = filePart.filename();
+//        String suffix = originalFilename.contains(".")
+//                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+//                : "";
+//        String filename = UUID.randomUUID().toString() + suffix;
+//        Path targetPath = Paths.get(UPLOAD_DIR, filename);   // 推荐用 Paths.get(基路径, 文件名)
+//
+//        // 2. 先查询设备（建议也做成响应式，但这里先用阻塞式也行，影响不大）
+//        Optional<Device> deviceOpt = deviceService.getOneOpt(
+//                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+//
+//        if (deviceOpt.isEmpty()) {
+//            return Mono.just(R.fail("设备ID不存在: " + deviceId));
+//        }
+//        Device device = deviceOpt.get();
+//        Integer loginId = device.getLoginId();
+//
+//        // 3. 把文件保存到磁盘，然后再调用转录服务
+//        return filePart.transferTo(targetPath)                 // 这步是真正的保存动作，返回 Mono<Void>
+//                .then(Mono.fromCallable(() -> {
+//                    byte[] wavBytes = Files.readAllBytes(targetPath);
+//
+//                    if (wavBytes.length <= 44) {
+//                        throw new IllegalArgumentException("无效的WAV文件，太小");
+//                    }
+//
+//                    // 关键：去掉 44 字节 WAV 头，得到纯 PCM
+//                    byte[] purePcmBytes = Arrays.copyOfRange(wavBytes, 44, wavBytes.length);
+//
+//                    // 包装成 InputStream（你的旧代码完全不用改！）
+//                    InputStream pcmInputStream = new ByteArrayInputStream(purePcmBytes);
+//                    // 文件已经100%写完，此时路径才真正可用
+//                    String fileFullPath = targetPath.toAbsolutePath().toString();
+//                    // 或者如果你只需要文件名或相对路径，根据实际情况返回
+//                    // String fileFullPath = "/uploads/" + filename;
+//
+//                    // 这里调用你的实时/离线转录服务，把路径传进去
+//                    mediaStreamService.voiceTrans(loginId, fileFullPath);
+//
+//                    return R.ok(fileFullPath);
+//                }));
+//    }
+
+    @PostMapping("/voiceTrans/{deviceId}")
+    public Mono<R<String>> voiceTrans(
+            @PathVariable String deviceId,
+            @RequestPart("file") FilePart filePart) {
+
+        // 1. 生成临时文件路径（仍然需要临时落地，因为 FilePart 是流式上传）
+        String filename = UUID.randomUUID() + ".wav";
+        Path tempWavPath = Paths.get(UPLOAD_DIR, filename);
+
+        // 2. 查询设备（保持不变）
+        Optional<Device> deviceOpt = deviceService.getOneOpt(
+                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+
+        if (deviceOpt.isEmpty()) {
+            return Mono.just(R.fail("设备ID不存在: " + deviceId));
+        }
+        Device device = deviceOpt.get();
+        Integer loginId = device.getLoginId();
+
+        return filePart.transferTo(tempWavPath)  // 先把前端上传的 wav 完整落地
+                .then(Mono.fromCallable(() -> {
+                    try {
+                        byte[] wavBytes = Files.readAllBytes(tempWavPath);
+
+                        if (wavBytes.length <= 44) {
+                            throw new IllegalArgumentException("无效的WAV文件，太小");
+                        }
+
+                        // 关键：去掉 44 字节 WAV 头，得到纯 PCM
+                        byte[] purePcmBytes = Arrays.copyOfRange(wavBytes, 44, wavBytes.length);
+
+                        // 包装成 InputStream（你的旧代码完全不用改！）
+                        InputStream pcmInputStream = new ByteArrayInputStream(purePcmBytes);
+
+                        // 直接调用你原来的转录服务（原来接收 FileInputStream 的地方完全兼容）
+                        mediaStreamService.voiceTrans(loginId, pcmInputStream);
+                        // 注意：如果你的 voiceTrans 方法内部会 close 这个 stream，这里不需要你手动 close
+                        // ByteArrayInputStream close 是空操作，安全
+
+                        // 用完即删临时 wav 文件
+                        Files.deleteIfExists(tempWavPath);
+
+                        return R.ok("上传成功，内存转纯PCM直传，已处理 " + purePcmBytes.length + " bytes");
+
+                    } catch (Exception e) {
+                        // 出错也要尝试删临时文件
+                        Files.deleteIfExists(tempWavPath);
+                        throw new RuntimeException("处理音频失败: " + e.getMessage(), e);
+                    }
+                }));
     }
 }

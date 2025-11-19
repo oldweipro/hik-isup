@@ -263,18 +263,19 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     }
 
     @Override
-    public void voiceTrans(Integer loginId) {
+    public void voiceTrans(Integer loginId, InputStream fileFullPath) {
+        log.info("voiceTrans fileFullPath:{}", fileFullPath);
         //获取设备通道对讲信息，包括编码格式，起始对讲通道号等，跟nvr对讲前先获取
         NET_EHOME_DEVICE_INFO res = getDeviceInfo(loginId);
         //采集本地20s音频保存为pcm
-        makeVoice(20);
+//        makeVoice(20);
         /**
          * ISUP5.0语音转发模块(需要设备在线, 需要确定设备是否支持此功能, 需要实现前面初始化语音流媒体服务的代码)
          */
         int dwVoiceChan = res.byStartDTalkChan + 3;
         byte dwAudioEncType = (byte) res.dwAudioEncType;
 
-        int voiceTalkSessionId = StartVoiceTrans(loginId, dwVoiceChan, dwAudioEncType);
+        int voiceTalkSessionId = StartVoiceTrans(loginId, dwVoiceChan, dwAudioEncType, fileFullPath);
 
         StopVoiceTrans(loginId, voiceTalkSessionId, StreamManager.lVoiceLinkHandle);
     }
@@ -347,7 +348,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             int bufferSize = (int) (format.getFrameRate() * format.getFrameSize()); // 计算缓冲区大小
             byte[] buffer = new byte[bufferSize];
 
-            File file = new File(CommonMethod.getResFileAbsPath("audioFile/audioCollected.pcm")); // PCM文件路径
+            File file = new File(CommonMethod.getResFileAbsPath("resources/audioFile/audioCollected.pcm")); // PCM文件路径
             int numBytesRead = 0;
             int totalBytesRead = 0;
             try (FileOutputStream out = new FileOutputStream(file)) {
@@ -384,7 +385,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * ENUM_ENCODING_RAW = 100
      * }NET_EHOME_TALK_ENCODING_TYPE;
      */
-    private int StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType) {
+    private int StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType, InputStream voiceInputStream) {
         int voiceTalkSessionId = -1;
         byEncodingType = (byte) (byEncodingType + 1); //这里是将NET_EHOME_DEVICE_INFO.dwAudioEncType跟byEncodingType值对齐，区别见结构体NET_EHOME_DEVICE_INFO和NET_EHOME_TALK_ENCODING_TYPE的定义
         // 语音对讲开启请求的输入参数
@@ -424,12 +425,10 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         System.out.println("NET_ECMS_StartPushVoiceStream success!\n");
 
         //发送音频数据
-        FileInputStream voiceInputStream = null;
         int dataLength = 0;
         try {
             //创建从文件读取数据的FileInputStream流
 //            voiceInputStream = new FileInputStream(CommonMethod.getResFileAbsPath("audioFile/twoWayTalk.g7"));
-            voiceInputStream = new FileInputStream(CommonMethod.getResFileAbsPath("audioFile/audioCollected.pcm"));
             //返回文件的总字节数
             dataLength = voiceInputStream.available();
         } catch (IOException e) {
@@ -490,7 +489,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             NET_DVR_AUDIOENC_PROCESS_PARAM struEncParam = new NET_DVR_AUDIOENC_PROCESS_PARAM();
             struEncParam.in_buf = ptrPcmData.getPointer();
             struEncParam.out_buf = ptrG711Data.getPointer();
-            struEncParam.out_frame_size = 320;
+            struEncParam.out_frame_size = 160;
             struEncParam.g711_type = 0;//G711编码类型：0- U law，1- A law
             struEncParam.write();
 
@@ -557,6 +556,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             return;
         }
         // 释放SDK资源
-        hikNet.NET_DVR_Cleanup();
+//        hikNet.NET_DVR_Cleanup();
     }
 }

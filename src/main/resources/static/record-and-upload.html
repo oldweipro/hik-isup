@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>浏览器录音 → 8000Hz 16bit 单声道 WAV（零依赖终极版）</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f0f0f0;
+            text-align: center;
+        }
+
+        button {
+            padding: 15px 30px;
+            margin: 15px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin: 30px;
+            font-size: 20px;
+            color: #e74c3c;
+        }
+
+        audio {
+            margin-top: 20px;
+            width: 600px;
+        }
+    </style>
+</head>
+<body>
+<h1>浏览器录音（8000Hz 16bit 单声道 PCM）</h1>
+<button id="startBtn">开始录音</button>
+<button id="stopBtn" disabled>停止录音</button>
+<button id="uploadBtn" disabled>上传到服务器</button>
+<div id="status">准备就绪（请允许麦克风权限）</div>
+<audio id="playback" controls style="display:none;"></audio>
+
+<script>
+    let audioContext;
+    let scriptNode;
+    let mediaStream;
+    let audioData = [];   // 存储所有 left channel 的 Float32 数据
+    let recording = false;
+
+    const statusDiv = document.getElementById('status');
+    const playback = document.getElementById('playback');
+
+    // 关键：把 Float32 (-1 ~ 1) 转为 16bit PCM 并拼成 WAV
+    function encodeWAV(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+
+        // WAV Header
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);                   // PCM
+        view.setUint16(22, 1, true);                   // 单声道
+        view.setUint32(24, sampleRate, true);          // 8000
+        view.setUint32(28, sampleRate * 2, true);      // Byte rate
+        view.setUint16(32, 2, true);                   // Block align
+        view.setUint16(34, 16, true);                  // Bits per sample
+        writeString(36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        // 写入 PCM 数据（Float32 → Int16）
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            const s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+
+        return new Blob([buffer], {type: 'audio/wav'});
+    }
+
+    document.getElementById('startBtn').onclick = async () => {
+        try {
+            statusDiv.textContent = '正在请求麦克风权限...';
+            audioData = [];
+
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    sampleRate: 8000,
+                    channelCount: 1,
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({sampleRate: 8000});
+            const source = audioContext.createMediaStreamSource(mediaStream);
+
+            // 使用 ScriptProcessorNode（虽然已废弃，但2025年所有浏览器仍完美支持，且最简单稳定）
+            scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
+            scriptNode.onaudioprocess = e => {
+                if (!recording) return;
+                const input = e.inputBuffer.getChannelData(0);  // Float32Array
+                audioData.push(new Float32Array(input));        // 只取左声道（单声道就是左）
+            };
+
+            source.connect(scriptNode);
+            scriptNode.connect(audioContext.destination);  // 必须连到 destination 才能触发 onaudioprocess
+
+            recording = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            statusDiv.textContent = '正在录音（8000Hz 16bit 单声道）...';
+        } catch (err) {
+            statusDiv.textContent = '获取麦克风失败：' + err.message;
+            console.error(err);
+        }
+    };
+
+    document.getElementById('stopBtn').onclick = () => {
+        recording = false;
+        mediaStream.getTracks().forEach(t => t.stop());
+        scriptNode.disconnect();
+        audioContext.close();
+
+        // 合并所有片段
+        const totalLength = audioData.reduce((acc, cur) => acc + cur.length, 0);
+        const result = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of audioData) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        window.finalWavBlob = encodeWAV(result, 8000);
+
+        const url = URL.createObjectURL(window.finalWavBlob);
+        playback.src = url;
+        playback.style.display = 'block';
+
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('uploadBtn').disabled = false;
+
+        const sizeKB = (window.finalWavBlob.size / 1024).toFixed(1);
+        statusDiv.textContent = `录音完成！WAV 大小：${sizeKB} KB（后端去掉44字节头即可完美兼容）`;
+    };
+
+    document.getElementById('uploadBtn').onclick = async () => {
+        if (!window.finalWavBlob) return;
+
+        const formData = new FormData();
+        formData.append('file', window.finalWavBlob, 'recording.wav');
+
+        statusDiv.textContent = '正在上传...';
+        document.getElementById('uploadBtn').disabled = true;
+
+        try {
+            const resp = await fetch('/mediaStream/voiceTrans/GG5561970', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await resp.json();
+            statusDiv.textContent = resp.ok ? '上传成功！' + JSON.stringify(result) : '上传失败：' + JSON.stringify(result);
+        } catch (e) {
+            statusDiv.textContent = '上传异常：' + e.message;
+        } finally {
+            document.getElementById('uploadBtn').disabled = false;
+        }
+    };
+</script>
+</body>
+</html>

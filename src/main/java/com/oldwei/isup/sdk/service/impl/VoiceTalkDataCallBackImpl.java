@@ -28,10 +28,10 @@ public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
         this.hikNet = hikNet;
         // 保存回调函数的音频数据
         if (OsSelect.isWindows()) {
-            fileG7 = new File(CommonMethod.getResFileAbsPath("audioFile\\DeviceToPlat.g7"));
+            fileG7 = new File(CommonMethod.getResFileAbsPath("resources\\audioFile\\DeviceToPlat.g7"));
         }
         if (OsSelect.isLinux()) {
-            fileG7 = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.g7"));
+            fileG7 = new File(CommonMethod.getResFileAbsPath("/resources/audioFile/DeviceToPlat.g7"));
         }
 
         try {
@@ -46,10 +46,10 @@ public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
 
         // 保存回调函数的音频数据（解码后的pcm数据，播放和确认时长）
         if (OsSelect.isLinux()) {
-            filePcm = new File(CommonMethod.getResFileAbsPath("audioFile/DeviceToPlat.pcm"));
+            filePcm = new File(CommonMethod.getResFileAbsPath("resources/audioFile/DeviceToPlat.pcm"));
         }
         if (OsSelect.isWindows()) {
-            filePcm = new File(CommonMethod.getResFileAbsPath("audioFile\\DeviceToPlat.pcm"));
+            filePcm = new File(CommonMethod.getResFileAbsPath("resources\\audioFile\\DeviceToPlat.pcm"));
         }
         try {
             if (!filePcm.exists()) {
