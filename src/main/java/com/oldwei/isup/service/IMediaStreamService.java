@@ -2,8 +2,6 @@ package com.oldwei.isup.service;
 
 import com.oldwei.isup.model.Device;
 
-import java.io.InputStream;
-
 public interface IMediaStreamService {
     /**
      * 预览视频
@@ -18,5 +16,5 @@ public interface IMediaStreamService {
 
     void stopPlayBackByTime(Integer device);
 
-    void voiceTrans(Integer loginId, InputStream fileFullPath);
+    void voiceTrans(Integer loginId, String fileFullPath);
 }

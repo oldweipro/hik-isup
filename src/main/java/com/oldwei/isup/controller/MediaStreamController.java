@@ -6,12 +6,15 @@ import com.oldwei.isup.domain.DeviceRemoteControl;
 import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
+import com.oldwei.isup.model.tts.DataItem;
+import com.oldwei.isup.model.tts.TtsRequest;
 import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.model.xml.PpvspMessage;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
+import com.oldwei.isup.util.WebFluxHttpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -22,9 +25,10 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayInputStream;
+import java.io.BufferedReader;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -170,65 +174,19 @@ public class MediaStreamController {
         return deviceRemoteControl;
     }
 
-//    @PostMapping("/voiceTrans/{deviceId}")
-//    public Mono<R<String>> voiceTrans(
-//            @PathVariable String deviceId,
-//            @RequestPart("file") FilePart filePart) {
-//
-//        // 1. 生成唯一文件名
-//        String originalFilename = filePart.filename();
-//        String suffix = originalFilename.contains(".")
-//                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-//                : "";
-//        String filename = UUID.randomUUID().toString() + suffix;
-//        Path targetPath = Paths.get(UPLOAD_DIR, filename);   // 推荐用 Paths.get(基路径, 文件名)
-//
-//        // 2. 先查询设备（建议也做成响应式，但这里先用阻塞式也行，影响不大）
-//        Optional<Device> deviceOpt = deviceService.getOneOpt(
-//                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
-//
-//        if (deviceOpt.isEmpty()) {
-//            return Mono.just(R.fail("设备ID不存在: " + deviceId));
-//        }
-//        Device device = deviceOpt.get();
-//        Integer loginId = device.getLoginId();
-//
-//        // 3. 把文件保存到磁盘，然后再调用转录服务
-//        return filePart.transferTo(targetPath)                 // 这步是真正的保存动作，返回 Mono<Void>
-//                .then(Mono.fromCallable(() -> {
-//                    byte[] wavBytes = Files.readAllBytes(targetPath);
-//
-//                    if (wavBytes.length <= 44) {
-//                        throw new IllegalArgumentException("无效的WAV文件，太小");
-//                    }
-//
-//                    // 关键：去掉 44 字节 WAV 头，得到纯 PCM
-//                    byte[] purePcmBytes = Arrays.copyOfRange(wavBytes, 44, wavBytes.length);
-//
-//                    // 包装成 InputStream（你的旧代码完全不用改！）
-//                    InputStream pcmInputStream = new ByteArrayInputStream(purePcmBytes);
-//                    // 文件已经100%写完，此时路径才真正可用
-//                    String fileFullPath = targetPath.toAbsolutePath().toString();
-//                    // 或者如果你只需要文件名或相对路径，根据实际情况返回
-//                    // String fileFullPath = "/uploads/" + filename;
-//
-//                    // 这里调用你的实时/离线转录服务，把路径传进去
-//                    mediaStreamService.voiceTrans(loginId, fileFullPath);
-//
-//                    return R.ok(fileFullPath);
-//                }));
-//    }
-
-    @PostMapping("/voiceTrans/{deviceId}")
-    public Mono<R<String>> voiceTrans(
+    @PostMapping("/generateTtsVoiceTrans/{deviceId}")
+    public Mono<R<Object>> generateTtsVoiceTrans(
             @PathVariable String deviceId,
-            @RequestPart("file") FilePart filePart) {
+            @RequestBody DataItem dataItem) {
 
-        // 1. 生成临时文件路径（仍然需要临时落地，因为 FilePart 是流式上传）
-        String filename = UUID.randomUUID() + ".wav";
-        Path tempWavPath = Paths.get(UPLOAD_DIR, filename);
+        // 1. 生成唯一文件名
+        String filename = UUID.randomUUID().toString();
+        String mp3Filename = "tts_" + filename + ".mp3";
+        String pcmFilename = "tts_" + filename + "_8k.pcm";
+        Path mp3TargetPath = Paths.get(UPLOAD_DIR, mp3Filename);
+        Path pcmTargetPath = Paths.get(UPLOAD_DIR, pcmFilename);
 
-        // 2. 查询设备（保持不变）
+        // 2. 查询设备
         Optional<Device> deviceOpt = deviceService.getOneOpt(
                 new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
 
@@ -238,36 +196,248 @@ public class MediaStreamController {
         Device device = deviceOpt.get();
         Integer loginId = device.getLoginId();
 
-        return filePart.transferTo(tempWavPath)  // 先把前端上传的 wav 完整落地
-                .then(Mono.fromCallable(() -> {
-                    try {
-                        byte[] wavBytes = Files.readAllBytes(tempWavPath);
+        // 3. 构建请求数据
+        List<DataItem> dataList = Arrays.asList(
+                new DataItem("路人甲",
+                        dataItem.getText(),
+                        "zh-CN-YunjianNeural",
+                        "0%")
+        );
 
-                        if (wavBytes.length <= 44) {
-                            throw new IllegalArgumentException("无效的WAV文件，太小");
+        TtsRequest request = new TtsRequest();
+        request.setData(dataList);
+
+        String url = "http://localhost:3000/api/v1/tts/generateJson";
+
+        // 4. 异步发送TTS请求并处理文件转换和转录
+        return WebFluxHttpUtil.postAsync(url, request, byte[].class)
+                .flatMap(audioData -> {
+                    if (audioData == null || audioData.length == 0) {
+                        return Mono.error(new RuntimeException("TTS音频数据为空"));
+                    }
+
+                    // 5. 保存音频文件
+                    return Mono.fromCallable(() -> {
+                        // 保存MP3文件
+                        try (FileOutputStream fos = new FileOutputStream(mp3TargetPath.toFile())) {
+                            fos.write(audioData);
+                            fos.flush();
+                        } catch (IOException e) {
+                            throw new RuntimeException("保存MP3文件失败: " + e.getMessage());
                         }
 
-                        // 关键：去掉 44 字节 WAV 头，得到纯 PCM
-                        byte[] purePcmBytes = Arrays.copyOfRange(wavBytes, 44, wavBytes.length);
+                        // 6. 检查MP3文件是否存在且有内容
+                        if (!Files.exists(mp3TargetPath) || Files.size(mp3TargetPath) == 0) {
+                            throw new IllegalArgumentException("生成的音频文件为空或不存在");
+                        }
 
-                        // 包装成 InputStream（你的旧代码完全不用改！）
-                        InputStream pcmInputStream = new ByteArrayInputStream(purePcmBytes);
+                        // 7. 使用FFmpeg将MP3转换为8K 16bit单声道PCM
+                        ProcessBuilder processBuilder = new ProcessBuilder(
+                                "ffmpeg",
+                                "-i", mp3TargetPath.toAbsolutePath().toString(), // 输入文件路径
+                                "-f", "mulaw",                    // 输出格式：μ-law编码
+                                "-ac", "1",                                     // 输出声道数：单声道
+                                "-ar", "8000",                                  // 输出采样率：8K
+                                "-acodec", "pcm_mulaw",           // 明确指定编码器
+                                "-y",                                           // 覆盖输出文件
+                                pcmTargetPath.toAbsolutePath().toString()       // 输出文件路径
+                        );
 
-                        // 直接调用你原来的转录服务（原来接收 FileInputStream 的地方完全兼容）
-                        mediaStreamService.voiceTrans(loginId, pcmInputStream);
-                        // 注意：如果你的 voiceTrans 方法内部会 close 这个 stream，这里不需要你手动 close
-                        // ByteArrayInputStream close 是空操作，安全
+                        Process process = processBuilder.start();
+                        int exitCode = process.waitFor();
 
-                        // 用完即删临时 wav 文件
-                        Files.deleteIfExists(tempWavPath);
+                        if (exitCode != 0) {
+                            // 转码失败，读取错误信息
+                            StringBuilder errorOutput = new StringBuilder();
+                            try (BufferedReader reader = new BufferedReader(
+                                    new InputStreamReader(process.getErrorStream()))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    errorOutput.append(line).append("\n");
+                                }
+                            }
+                            throw new RuntimeException("音频转码失败，FFmpeg退出码: " + exitCode +
+                                    ", 错误信息: " + errorOutput.toString());
+                        }
 
-                        return R.ok("上传成功，内存转纯PCM直传，已处理 " + purePcmBytes.length + " bytes");
+                        // 8. 检查转换后的PCM文件是否存在
+                        if (!Files.exists(pcmTargetPath)) {
+                            throw new RuntimeException("转换后的PCM文件不存在: " + pcmTargetPath.toString());
+                        }
 
+                        // 9. 调用转录服务
+                        mediaStreamService.voiceTrans(loginId, pcmTargetPath.toAbsolutePath().toString());
+
+                        return R.ok(pcmTargetPath.toAbsolutePath().toString());
+                    });
+                })
+                .doOnError(error -> {
+                    // 发生错误时清理临时文件
+                    try {
+                        if (Files.exists(mp3TargetPath)) {
+                            Files.delete(mp3TargetPath);
+                        }
+                        if (Files.exists(pcmTargetPath)) {
+                            Files.delete(pcmTargetPath);
+                        }
                     } catch (Exception e) {
-                        // 出错也要尝试删临时文件
-                        Files.deleteIfExists(tempWavPath);
-                        throw new RuntimeException("处理音频失败: " + e.getMessage(), e);
+                        System.err.println("清理临时文件失败: " + e.getMessage());
                     }
-                }));
+                });
     }
+
+    @PostMapping("/voiceTrans/{deviceId}")
+    public Mono<R<Object>> voiceTrans(
+            @PathVariable String deviceId,
+            @RequestPart("file") FilePart filePart) {
+
+        // 1. 生成唯一文件名
+        String originalFilename = filePart.filename();
+        String suffix = originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : "";
+        String filename = UUID.randomUUID().toString() + suffix;
+        Path targetPath = Paths.get(UPLOAD_DIR, filename);
+
+        // 2. 查询设备
+        Optional<Device> deviceOpt = deviceService.getOneOpt(
+                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+
+        if (deviceOpt.isEmpty()) {
+            return Mono.just(R.fail("设备ID不存在: " + deviceId));
+        }
+        Device device = deviceOpt.get();
+        Integer loginId = device.getLoginId();
+
+        // 3. 保存文件并转码，然后调用转录服务
+        return filePart.transferTo(targetPath)
+                .then(Mono.fromCallable(() -> {
+                    // 检查文件是否存在且有内容
+                    if (!Files.exists(targetPath) || Files.size(targetPath) <= 44) {
+                        throw new IllegalArgumentException("无效的音频文件，文件大小异常");
+                    }
+
+                    // 生成转码后的文件路径
+                    String originalFileName = targetPath.getFileName().toString();
+                    String baseName = originalFileName.contains(".")
+                            ? originalFileName.substring(0, originalFileName.lastIndexOf("."))
+                            : originalFileName;
+                    String g711uFilename = baseName + "_g711u.pcm";
+                    Path g711uTargetPath = Paths.get(UPLOAD_DIR, g711uFilename);
+
+                    // 4. 使用FFmpeg将原始文件转换为G.711 μ-law
+                    ProcessBuilder processBuilder = new ProcessBuilder(
+                            "ffmpeg",
+                            "-i", targetPath.toAbsolutePath().toString(), // 输入文件路径
+                            "-f", "mulaw",                    // 输出格式：μ-law编码
+                            "-ac", "1",                       // 输出声道数：单声道
+                            "-ar", "8000",                    // 输出采样率：8K
+                            "-acodec", "pcm_mulaw",           // 明确指定编码器
+                            "-y",                             // 覆盖输出文件
+                            g711uTargetPath.toAbsolutePath().toString() // 输出文件路径
+                    );
+
+                    Process process = processBuilder.start();
+                    int exitCode = process.waitFor();
+
+                    if (exitCode != 0) {
+                        // 转码失败，读取错误信息
+                        StringBuilder errorOutput = new StringBuilder();
+                        try (BufferedReader reader = new BufferedReader(
+                                new InputStreamReader(process.getErrorStream()))) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                errorOutput.append(line).append("\n");
+                            }
+                        }
+                        throw new RuntimeException("音频转码失败，FFmpeg退出码: " + exitCode +
+                                ", 错误信息: " + errorOutput.toString());
+                    }
+
+                    // 5. 检查转码后的文件是否存在
+                    if (!Files.exists(g711uTargetPath)) {
+                        throw new RuntimeException("转码后的文件不存在: " + g711uTargetPath.toString());
+                    }
+
+                    // 6. 获取转码后的完整文件路径
+                    String g711uFileFullPath = g711uTargetPath.toAbsolutePath().toString();
+
+                    // 7. 调用你的实时/离线转录服务，传入转码后的文件路径
+                    mediaStreamService.voiceTrans(loginId, g711uFileFullPath);
+
+                    return R.ok(g711uFileFullPath);
+                }))
+                .doOnError(error -> {
+                    // 发生错误时清理临时文件
+                    try {
+                        String originalFileName = targetPath.getFileName().toString();
+                        String baseName = originalFileName.contains(".")
+                                ? originalFileName.substring(0, originalFileName.lastIndexOf("."))
+                                : originalFileName;
+                        String g711uFilename = baseName + "_g711u.pcm";
+                        Path g711uTargetPath = Paths.get(UPLOAD_DIR, g711uFilename);
+
+                        if (Files.exists(targetPath)) {
+                            Files.delete(targetPath);
+                        }
+                        if (Files.exists(g711uTargetPath)) {
+                            Files.delete(g711uTargetPath);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("清理临时文件失败: " + e.getMessage());
+                    }
+                });
+    }
+
+//    @PostMapping("/voiceTrans1/{deviceId}")
+//    public Mono<R<String>> voiceTrans1(
+//            @PathVariable String deviceId,
+//            @RequestPart("file") FilePart filePart) {
+//
+//        // 1. 生成临时文件路径（仍然需要临时落地，因为 FilePart 是流式上传）
+//        String filename = UUID.randomUUID() + ".wav";
+//        Path tempWavPath = Paths.get(UPLOAD_DIR, filename);
+//
+//        // 2. 查询设备（保持不变）
+//        Optional<Device> deviceOpt = deviceService.getOneOpt(
+//                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+//
+//        if (deviceOpt.isEmpty()) {
+//            return Mono.just(R.fail("设备ID不存在: " + deviceId));
+//        }
+//        Device device = deviceOpt.get();
+//        Integer loginId = device.getLoginId();
+//
+//        return filePart.transferTo(tempWavPath)  // 先把前端上传的 wav 完整落地
+//                .then(Mono.fromCallable(() -> {
+//                    try {
+//                        byte[] wavBytes = Files.readAllBytes(tempWavPath);
+//
+//                        if (wavBytes.length <= 44) {
+//                            throw new IllegalArgumentException("无效的WAV文件，太小");
+//                        }
+//
+//                        // 关键：去掉 44 字节 WAV 头，得到纯 PCM
+//                        byte[] purePcmBytes = Arrays.copyOfRange(wavBytes, 44, wavBytes.length);
+//
+//                        // 包装成 InputStream（你的旧代码完全不用改！）
+//                        InputStream pcmInputStream = new ByteArrayInputStream(purePcmBytes);
+//
+//                        // 直接调用你原来的转录服务（原来接收 FileInputStream 的地方完全兼容）
+//                        mediaStreamService.voiceTrans(loginId, pcmInputStream);
+//                        // 注意：如果你的 voiceTrans 方法内部会 close 这个 stream，这里不需要你手动 close
+//                        // ByteArrayInputStream close 是空操作，安全
+//
+//                        // 用完即删临时 wav 文件
+//                        Files.deleteIfExists(tempWavPath);
+//
+//                        return R.ok("上传成功，内存转纯PCM直传，已处理 " + purePcmBytes.length + " bytes");
+//
+//                    } catch (Exception e) {
+//                        // 出错也要尝试删临时文件
+//                        Files.deleteIfExists(tempWavPath);
+//                        throw new RuntimeException("处理音频失败: " + e.getMessage(), e);
+//                    }
+//                }));
+//    }
 }

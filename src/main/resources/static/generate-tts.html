@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS语音生成与转录</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        textarea {
+            min-height: 120px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 14px 30px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 15px 0;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            button {
+                padding: 12px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>📢 TTS语音生成与转录</h1>
+
+<div class="card">
+    <form id="ttsForm">
+        <div class="form-group">
+            <label for="deviceId">设备ID *</label>
+            <input type="text" id="deviceId" name="deviceId" placeholder="请输入设备ID（如：device_001）" required>
+        </div>
+
+        <div class="form-group">
+            <label for="text">要转换的文本 *</label>
+            <textarea id="text" name="text" placeholder="请输入要生成语音的中文文本，例如：今天天气真好，我们去公园散步吧。"
+                      required></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="speaker">语音角色</label>
+            <input type="text" id="speaker" name="speaker" placeholder="语音角色（可选，默认：zh-CN-XiaoniNeural）"
+                   value="zh-CN-XiaoniNeural">
+        </div>
+
+        <div class="form-group">
+            <label for="speed">语速</label>
+            <input type="text" id="speed" name="speed" placeholder="语速（可选，默认：-20%）" value="-20%">
+        </div>
+
+        <button type="submit" id="submitBtn">生成语音并转录</button>
+    </form>
+
+    <div id="loading" class="loading" style="display: none;">⏳ 正在生成语音，请稍候...</div>
+    <div id="result" class="result" style="display: none;"></div>
+</div>
+
+<div class="footer">
+    © 2025 语音转录系统 | 本页面用于测试 TTS + 语音转录流程
+</div>
+
+<script>
+    document.getElementById('ttsForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const deviceId = document.getElementById('deviceId').value.trim();
+        const text = document.getElementById('text').value.trim();
+        const speaker = document.getElementById('speaker').value.trim() || 'zh-CN-XiaoniNeural';
+        const speed = document.getElementById('speed').value.trim() || '-20%';
+
+        if (!deviceId || !text) {
+            showResult('⚠️ 设备ID和文本不能为空', 'error');
+            return;
+        }
+
+        // 显示加载状态
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('result').style.display = 'none';
+
+        try {
+            // 创建请求体数据
+            const requestBody = {
+                name: "路人甲", // 可以根据需要修改
+                text: text,
+                speaker: speaker,
+                speed: speed
+            };
+
+            const response = await fetch(`/mediaStream/generateTtsVoiceTrans/${encodeURIComponent(deviceId)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody) // 发送 JSON 格式的请求体
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.code === 200) {
+                showResult(`✅ 成功！转码后PCM文件路径：${result.data}`, 'success');
+            } else {
+                showResult(`❌ 失败：${result.message || '未知错误'}`, 'error');
+            }
+
+        } catch (error) {
+            showResult(`❌ 请求异常：${error.message}`, 'error');
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('submitBtn').disabled = false;
+        }
+    });
+
+    function showResult(message, type) {
+        const resultDiv = document.getElementById('result');
+        resultDiv.textContent = message;
+        resultDiv.className = `result ${type}`;
+        resultDiv.style.display = 'block';
+    }
+</script>
+
+</body>
+</html>

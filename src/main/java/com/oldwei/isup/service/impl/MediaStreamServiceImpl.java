@@ -11,19 +11,13 @@ import com.oldwei.isup.sdk.service.IHikNet;
 import com.oldwei.isup.sdk.structure.*;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
-import com.oldwei.isup.util.CommonMethod;
-import com.sun.jna.Pointer;
 import lombok.RequiredArgsConstructor;
 import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.TargetDataLine;
-import java.io.*;
-import java.nio.ByteBuffer;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
@@ -263,7 +257,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     }
 
     @Override
-    public void voiceTrans(Integer loginId, InputStream fileFullPath) {
+    public void voiceTrans(Integer loginId, String fileFullPath) {
         log.info("voiceTrans fileFullPath:{}", fileFullPath);
         //获取设备通道对讲信息，包括编码格式，起始对讲通道号等，跟nvr对讲前先获取
         NET_EHOME_DEVICE_INFO res = getDeviceInfo(loginId);
@@ -312,62 +306,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     }
 
     /**
-     * 录制电脑麦克风声音文件
-     *
-     * @param duration ：采集时长
-     */
-    private void makeVoice(int duration) {
-        int sampleRate = 8000; // 采样率
-        int bitsPerSample = 16; // 每样本比特数
-        int channels = 1; // 双声道
-        int frameSize = channels * bitsPerSample / 8; // 单个样本大小
-        boolean signed = true; // 有符号
-        boolean bigEndian = false; // 小端字节序
-
-        AudioFormat format = new AudioFormat(
-                sampleRate,
-                bitsPerSample,
-                channels,
-                signed,
-                bigEndian
-        );
-
-        DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
-
-        if (!AudioSystem.isLineSupported(info)) {
-            System.out.println("Line not supported");
-            return;
-        }
-
-        TargetDataLine line = null;
-        try {
-            line = (TargetDataLine) AudioSystem.getLine(info);
-            line.open(format);
-            line.start();
-
-            int bufferSize = (int) (format.getFrameRate() * format.getFrameSize()); // 计算缓冲区大小
-            byte[] buffer = new byte[bufferSize];
-
-            File file = new File(CommonMethod.getResFileAbsPath("resources/audioFile/audioCollected.pcm")); // PCM文件路径
-            int numBytesRead = 0;
-            int totalBytesRead = 0;
-            try (FileOutputStream out = new FileOutputStream(file)) {
-                while (totalBytesRead < format.getFrameRate() * format.getFrameSize() * duration && (numBytesRead = line.read(buffer, 0, buffer.length)) >= 0) {
-                    out.write(buffer, 0, numBytesRead);
-                    totalBytesRead += numBytesRead;
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (line != null) {
-                line.stop();
-                line.close();
-            }
-        }
-    }
-
-    /**
      * 开启语音转发
      * 说明：byEncodingType为获取设备通道对讲信息中返回的编码格式，对应结构体NET_EHOME_DEVICE_INFO.dwAudioEncType;  // 语音对讲的音频格式：0-G.722，1-G.711U，2-G.711A，3-G.726，4-AAC，5-MP2L2。
      * NET_EHOME_DEVICE_INFO.dwAudioEncType为1表示g711u，对应NET_EHOME_TALK_ENCODING_TYPE中为2表示g711u
@@ -385,9 +323,9 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      * ENUM_ENCODING_RAW = 100
      * }NET_EHOME_TALK_ENCODING_TYPE;
      */
-    private int StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType, InputStream voiceInputStream) {
+    private int StartVoiceTrans(Integer loginId, int dwVoiceChan, byte byEncodingType, String filePath) {
         int voiceTalkSessionId = -1;
-        byEncodingType = (byte) (byEncodingType + 1); //这里是将NET_EHOME_DEVICE_INFO.dwAudioEncType跟byEncodingType值对齐，区别见结构体NET_EHOME_DEVICE_INFO和NET_EHOME_TALK_ENCODING_TYPE的定义
+//        byEncodingType = (byte) (byEncodingType + 1); //这里是将NET_EHOME_DEVICE_INFO.dwAudioEncType跟byEncodingType值对齐，区别见结构体NET_EHOME_DEVICE_INFO和NET_EHOME_TALK_ENCODING_TYPE的定义
         // 语音对讲开启请求的输入参数
         NET_EHOME_VOICE_TALK_IN net_ehome_voice_talk_in = new NET_EHOME_VOICE_TALK_IN();
         net_ehome_voice_talk_in.struStreamSever.szIP = hikIsupProperties.getVoiceSmsServer().getIp().getBytes();
@@ -425,32 +363,15 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         System.out.println("NET_ECMS_StartPushVoiceStream success!\n");
 
         //发送音频数据
+        FileInputStream voiceInputStream = null;
         int dataLength = 0;
         try {
             //创建从文件读取数据的FileInputStream流
-//            voiceInputStream = new FileInputStream(CommonMethod.getResFileAbsPath("audioFile/twoWayTalk.g7"));
+            voiceInputStream = new FileInputStream(filePath);
             //返回文件的总字节数
             dataLength = voiceInputStream.available();
         } catch (IOException e) {
             e.printStackTrace();
-        }
-
-        File fileEncode = new File(System.getProperty("user.dir") + "\\resources\\audioFile\\EncodedAudioData.g7");  //保存音频编码数据
-
-        if (!fileEncode.exists()) {
-            try {
-                fileEncode.createNewFile();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
-        FileOutputStream outputStreamG711 = null;
-        try {
-            outputStreamG711 = new FileOutputStream(fileEncode);
-        } catch (FileNotFoundException e3) {
-            // TODO Auto-generated catch block
-            e3.printStackTrace();
         }
 
         if (dataLength < 0) {
@@ -466,74 +387,26 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             e2.printStackTrace();
         }
         ptrVoiceByte.write();
-
-        int iEncodeSize = 0;
-        NET_DVR_AUDIOENC_INFO enc_info = new NET_DVR_AUDIOENC_INFO();
-        enc_info.write();
-
-        boolean initSuc = hikNet.NET_DVR_Init();
-        if (!initSuc) {
-            System.out.println("初始化失败");
-            return voiceTalkSessionId;
-        }
-        hikNet.NET_DVR_SetLogToFile(3, "./sdklog", false);
-        Pointer encoder = hikNet.NET_DVR_InitG711Encoder(enc_info);
-        while ((dataLength - iEncodeSize) > 640) {
-            BYTE_ARRAY ptrPcmData = new BYTE_ARRAY(640);
-            System.arraycopy(ptrVoiceByte.byValue, iEncodeSize, ptrPcmData.byValue, 0, 640);
-            ptrPcmData.write();
-
-            BYTE_ARRAY ptrG711Data = new BYTE_ARRAY(320);
-            ptrG711Data.write();
-
-            NET_DVR_AUDIOENC_PROCESS_PARAM struEncParam = new NET_DVR_AUDIOENC_PROCESS_PARAM();
-            struEncParam.in_buf = ptrPcmData.getPointer();
-            struEncParam.out_buf = ptrG711Data.getPointer();
-            struEncParam.out_frame_size = 160;
-            struEncParam.g711_type = 0;//G711编码类型：0- U law，1- A law
-            struEncParam.write();
-
-            if (!hikNet.NET_DVR_EncodeG711Frame(encoder, struEncParam)) {
-                System.out.println("NET_DVR_EncodeG711Frame failed, error code:" + hikNet.NET_DVR_GetLastError());
-                hikNet.NET_DVR_ReleaseG711Encoder(encoder);
+        int iSendData = 160;//G722编码每20毫秒发送80字节，G711编码每20毫秒发送160字节
+        for (int i = 0; i < dataLength / iSendData; i++) {
+            BYTE_ARRAY ptrG711Send = new BYTE_ARRAY(iSendData);
+            System.arraycopy(ptrVoiceByte.byValue, i * iSendData, ptrG711Send.byValue, 0, iSendData);
+            ptrG711Send.write();
+            NET_EHOME_VOICETALK_DATA struVoicTalkData = new NET_EHOME_VOICETALK_DATA();
+            struVoicTalkData.pData = ptrG711Send.getPointer();
+            struVoicTalkData.dwDataLen = iSendData;
+            struVoicTalkData.write();
+            // 将音频数据发送给设备
+            if (hikISUPStream.NET_ESTREAM_SendVoiceTalkData(StreamManager.lVoiceLinkHandle, struVoicTalkData) <= -1) {
+                System.out.println("NET_ESTREAM_SendVoiceTalkData failed, error code:" + hikISUPStream.NET_ESTREAM_GetLastError());
             }
-            struEncParam.read();
-            ptrG711Data.read();
 
-            long offsetG711 = 0;
-            ByteBuffer buffersG711 = struEncParam.out_buf.getByteBuffer(offsetG711, struEncParam.out_frame_size);
-            byte[] bytesG711 = new byte[struEncParam.out_frame_size];
-            buffersG711.rewind();
-            buffersG711.get(bytesG711);
+            //需要实时速率发送数据
             try {
-                outputStreamG711.write(bytesG711);
-            } catch (IOException e1) {
+                Thread.sleep(19);
+            } catch (InterruptedException e) {
                 // TODO Auto-generated catch block
-                e1.printStackTrace();
-            }
-            iEncodeSize += 640;
-            System.out.println("编码字节数：" + iEncodeSize);
-
-            for (int i = 0; i < struEncParam.out_frame_size / 160; i++) {
-                BYTE_ARRAY ptrG711Send = new BYTE_ARRAY(160);
-                System.arraycopy(ptrG711Data.byValue, i * 160, ptrG711Send.byValue, 0, 160);
-                ptrG711Send.write();
-                NET_EHOME_VOICETALK_DATA struVoicTalkData = new NET_EHOME_VOICETALK_DATA();
-                struVoicTalkData.pData = ptrG711Send.getPointer();
-                struVoicTalkData.dwDataLen = 160;
-                struVoicTalkData.write();
-                // 将音频数据发送给设备
-                if (hikISUPStream.NET_ESTREAM_SendVoiceTalkData(StreamManager.lVoiceLinkHandle, struVoicTalkData) <= -1) {
-                    System.out.println("NET_ESTREAM_SendVoiceTalkData failed, error code:" + hikISUPStream.NET_ESTREAM_GetLastError());
-                }
-
-                //需要实时速率发送数据
-                try {
-                    Thread.sleep(20);
-                } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
+                e.printStackTrace();
             }
         }
         return voiceTalkSessionId;
@@ -555,7 +428,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             System.out.println("NET_ECMS_StopVoiceTalkWithStmServer failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
             return;
         }
-        // 释放SDK资源
-//        hikNet.NET_DVR_Cleanup();
+        log.info("NET_ESTREAM_StopVoiceTalk success!");
     }
 }
