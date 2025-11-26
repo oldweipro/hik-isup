@@ -1,10 +1,10 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.*;
 
-public class NET_EHOME_ALARM_INFO extends Structure {
+public class NET_EHOME_ALARM_INFO extends HIKSDKStructure {
     public int dwSize;
     public byte[] szAlarmTime = new byte[MAX_TIME_LEN];  //报警触发时间（设备本地时间），格式，YYYY-MM-DD HH:MM:SS
     public byte[] szDeviceID = new byte[MAX_DEVICE_ID_LEN]; //设备注册ID

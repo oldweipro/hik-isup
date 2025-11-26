@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_CHAN_STATUS_CHANGED extends Structure {
+public class NET_EHOME_CHAN_STATUS_CHANGED extends HIKSDKStructure {
     public short wChanNO; // 通道号
     public byte byChanStatus; //通道状态，按位表示
     //bit0：启用状态，0-禁用/删除，1-启用/添加

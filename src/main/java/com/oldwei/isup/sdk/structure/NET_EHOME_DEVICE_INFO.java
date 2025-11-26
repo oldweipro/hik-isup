@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_DEVICE_INFO extends Structure {
+public class NET_EHOME_DEVICE_INFO extends HIKSDKStructure {
     public int dwSize;
     public int dwChannelNumber;
     public int dwChannelAmount;

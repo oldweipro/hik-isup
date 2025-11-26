@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_LINKAGE_PTZ extends Structure {
+public class NET_EHOME_LINKAGE_PTZ extends HIKSDKStructure {
     public byte byUsePreset;    //是否调用预置点，0：不使用；1：使用
     public byte byUseCurise;    //是否调用巡航，0：不使用；1：使用
     public byte byUseTrack;     //是否调用轨迹，0：不使用；1：使用

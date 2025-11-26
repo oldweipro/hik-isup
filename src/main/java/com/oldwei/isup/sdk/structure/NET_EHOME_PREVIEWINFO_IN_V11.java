@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_PREVIEWINFO_IN_V11 extends Structure {
+public class NET_EHOME_PREVIEWINFO_IN_V11 extends HIKSDKStructure {
     public int iChannel;
     public int dwStreamType;
     public int dwLinkMode;

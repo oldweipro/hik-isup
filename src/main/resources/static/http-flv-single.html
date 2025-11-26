@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jessibuca HTTP-FLV 直接播放</title>
+    <style>
+        html, body {
+            background: #111;
+            margin: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #eee;
+            font-family: sans-serif;
+        }
+
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        #container {
+            width: 100%;
+            height: 450px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+            min-width: 300px;
+        }
+
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+
+        button {
+            background: #0a84ff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            flex: 1;
+            min-width: 100px;
+        }
+
+        button:hover {
+            background: #0668d1;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        button.stop {
+            background: #ff5555;
+        }
+
+        button.stop:hover {
+            background: #cc3333;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #aaa;
+            min-height: 20px;
+            text-align: center;
+        }
+
+        .status.playing {
+            color: #4caf50;
+        }
+
+        .status.error {
+            color: #ff5555;
+        }
+
+        .status.loading {
+            color: #ffa500;
+        }
+
+        #urlInput {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #222;
+            color: #eee;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        #urlInput:focus {
+            outline: none;
+            border-color: #0a84ff;
+        }
+
+        .example {
+            font-size: 12px;
+            color: #777;
+            margin-top: -8px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <h2>🎥 Jessibuca HTTP-FLV 直接播放</h2>
+
+    <input type="text" id="urlInput" placeholder="请输入完整的 HTTP-FLV 流地址，例如：http://example.com/live/stream.flv">
+
+    <div class="example">注意：地址必须可公开访问，且为有效的 HTTP-FLV 流</div>
+
+    <div id="container"></div>
+
+    <div class="control-panel">
+        <button id="playBtn">▶️ 开始播放</button>
+        <button id="stopBtn" class="stop" disabled>⏹️ 停止播放</button>
+    </div>
+
+    <div class="status" id="status">请输入流地址</div>
+</div>
+
+<script>
+    let player = null;
+    let isPlaying = false;
+
+    const urlInput = document.getElementById('urlInput');
+    const playBtn = document.getElementById('playBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+
+    function updateStatus(message, type = 'normal') {
+        statusEl.textContent = message;
+        statusEl.className = 'status ' + type;
+    }
+
+    function setButtonState(playing) {
+        playBtn.disabled = playing;
+        stopBtn.disabled = !playing;
+        isPlaying = playing;
+    }
+
+    async function checkJessibuca() {
+        if (typeof Jessibuca !== 'undefined') return;
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = './jessibuca/jessibuca.min.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('无法加载 Jessibuca 库'));
+            document.head.appendChild(script);
+        });
+    }
+
+    playBtn.onclick = async () => {
+        const playURL = urlInput.value.trim();
+        if (!playURL) return updateStatus('❌ 请输入有效的 HTTP-FLV 地址', 'error');
+        if (!playURL.startsWith('http://') && !playURL.startsWith('https://')) {
+            return updateStatus('❌ 地址必须以 http:// 或 https:// 开头', 'error');
+        }
+
+        updateStatus('⏳ 正在加载播放器...', 'loading');
+        setButtonState(true);
+
+        try {
+            await checkJessibuca();
+            if (player) player.destroy();
+
+            player = new Jessibuca({
+                container: document.getElementById('container'),
+                isFlv: true,
+                liveMode: true,
+                videoBuffer: 0.2,
+                bufferTime: 100,
+                isResize: true,
+                isFullScreen: true,
+                hasAudio: true,
+                showBandwidth: true,
+                loadingTimeout: 10,
+                decoder: "./jessibuca/decoder.js",
+                debug: false,
+                loadingText: "正在连接..."
+            });
+
+            player.on("play", () => updateStatus('✅ 正在播放', 'playing'));
+            player.on("error", e => {
+                updateStatus(`❌ 播放错误: ${e}`, 'error');
+                setButtonState(false);
+            });
+            player.on("disconnect", () => {
+                updateStatus('⚠️ 连接断开', 'error');
+                setButtonState(false);
+            });
+
+            console.log("▶️ 开始播放:", playURL);
+            player.play(playURL);
+
+            // 尝试自动播放（静音）
+            const videoEl = document.querySelector('#container video');
+            if (videoEl) {
+                videoEl.muted = true;
+                videoEl.play().catch(() => {});
+            }
+        } catch (err) {
+            console.error(err);
+            updateStatus(`❌ ${err.message}`, 'error');
+            setButtonState(false);
+        }
+    };
+
+    stopBtn.onclick = () => {
+        if (player) {
+            player.destroy();
+            player = null;
+        }
+        updateStatus('已停止播放', 'normal');
+        setButtonState(false);
+    };
+
+    window.addEventListener('beforeunload', () => {
+        if (player) player.destroy();
+    });
+</script>
+</body>
+</html>

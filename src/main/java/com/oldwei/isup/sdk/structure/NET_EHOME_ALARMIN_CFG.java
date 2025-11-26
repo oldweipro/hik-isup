@@ -1,10 +1,10 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.NAME_LEN;
 
-public class NET_EHOME_ALARMIN_CFG extends Structure {
+public class NET_EHOME_ALARMIN_CFG extends HIKSDKStructure {
     public int dwSize;                     //结构体大小
     public byte[] sAlarmInName = new byte[NAME_LEN];     //报警输入名称
     public byte byAlarmInType;              //报警器类型：0：常开；1：常闭

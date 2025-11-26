@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_ALARMIN_LINKAGE_TYPE extends Structure {
+public class NET_EHOME_ALARMIN_LINKAGE_TYPE extends HIKSDKStructure {
     public byte byMonitorAlarm;     //监视器上警告，0：不使用；1：使用
     public byte bySoundAlarm;       //声音报警，0：不使用；1：使用
     public byte byUpload;           //上传中心，0：不使用；1：使用

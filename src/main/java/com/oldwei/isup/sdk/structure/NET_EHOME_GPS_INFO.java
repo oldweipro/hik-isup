@@ -1,11 +1,11 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.MAX_DEVICE_ID_LEN;
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.MAX_TIME_LEN;
 
-public class NET_EHOME_GPS_INFO extends Structure {
+public class NET_EHOME_GPS_INFO extends HIKSDKStructure {
     public int dwSize;
     public byte[] bySampleTime = new byte[MAX_TIME_LEN]; //GPS采样时间，设备本地时间，格式：YYYY-MM-DD HH:MM:SS
     public byte[] byDeviceID = new byte[MAX_DEVICE_ID_LEN];  //设备注册ID

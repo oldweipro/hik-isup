@@ -93,6 +93,12 @@
             <artifactId>jaxb-runtime</artifactId>
             <version>4.0.2</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.aizuda</groupId>
+            <artifactId>zlm4j</artifactId>
+            <version>1.7.1</version>
+        </dependency>
         <!-- HIK SDK -->
         <dependency>
             <groupId>com.sun.jna</groupId>

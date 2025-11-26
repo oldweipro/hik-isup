@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_DEV_TIMING_STATUS extends Structure {
+public class NET_EHOME_DEV_TIMING_STATUS extends HIKSDKStructure {
     public int dwMemoryTotal; // 内存总量，单位Kbyte
     public int dwMemoryUsage; // 内存使用量，单位Kbyte
     public byte byCPUUsage;   // CPU使用率，0-100

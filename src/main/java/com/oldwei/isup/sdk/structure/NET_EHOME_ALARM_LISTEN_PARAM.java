@@ -2,9 +2,9 @@ package com.oldwei.isup.sdk.structure;
 
 import com.oldwei.isup.sdk.service.EHomeMsgCallBack;
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_ALARM_LISTEN_PARAM extends Structure {
+public class NET_EHOME_ALARM_LISTEN_PARAM extends HIKSDKStructure {
     public NET_EHOME_IPADDRESS struAddress;
     public EHomeMsgCallBack fnMsgCb; //报警信息回调函数
     public Pointer pUserData;   //用户数据

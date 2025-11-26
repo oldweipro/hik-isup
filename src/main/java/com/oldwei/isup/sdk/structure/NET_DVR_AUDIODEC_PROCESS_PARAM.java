@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_DVR_AUDIODEC_PROCESS_PARAM extends Structure {
+public class NET_DVR_AUDIODEC_PROCESS_PARAM extends HIKSDKStructure {
     public Pointer in_buf;                      /* 输入数据buf */
     public Pointer out_buf;                     /* 输出数据buf */
     public int in_data_size;                 /* 输入in_buf内数据byte数 */

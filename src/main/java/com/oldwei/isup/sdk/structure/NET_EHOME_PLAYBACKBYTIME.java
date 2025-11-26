@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_PLAYBACKBYTIME extends Structure {
+public class NET_EHOME_PLAYBACKBYTIME extends HIKSDKStructure {
     public NET_EHOME_TIME struStartTime;  // 按时间回放的开始时间
     public NET_EHOME_TIME struStopTime;   // 按时间回放的结束时间
     public byte byLocalOrUTC;           //0-设备本地时间，即设备OSD时间  1-UTC时间

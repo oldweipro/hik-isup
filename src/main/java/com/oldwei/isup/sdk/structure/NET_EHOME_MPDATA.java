@@ -1,13 +1,13 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.MAX_TIME_LEN;
 
 /**
  * 车载客流统计的GPS定位信息
  */
-public class NET_EHOME_MPDATA extends Structure {
+public class NET_EHOME_MPDATA extends HIKSDKStructure {
     public byte byIndex; //当前车门编号，从1开始
     public byte byVideoChannel;   //当前对应视屏通道号，从1开始
     public byte byRes;

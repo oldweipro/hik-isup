@@ -1,10 +1,10 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import static com.oldwei.isup.sdk.service.constant.EHOME_ALARM_TYPE.*;
 
-public class NET_EHOME_FACESNAP_REPORT extends Structure {
+public class NET_EHOME_FACESNAP_REPORT extends HIKSDKStructure {
     public int dwSize;
     public byte[] byDeviceID = new byte[MAX_DEVICE_ID_LEN];   //设备注册ID
     public int dwVideoChannel;                  //通道号

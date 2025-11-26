@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_PLAYBACK_INFO_IN extends Structure {
+public class NET_EHOME_PLAYBACK_INFO_IN extends HIKSDKStructure {
     public int dwSize;
     public int dwChannel;                    //回放的通道号
     public byte byPlayBackMode;               //回放下载模式 0－按名字 1－按时间

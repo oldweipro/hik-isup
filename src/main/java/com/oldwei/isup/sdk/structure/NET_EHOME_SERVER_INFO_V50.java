@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_SERVER_INFO_V50 extends Structure {
+public class NET_EHOME_SERVER_INFO_V50 extends HIKSDKStructure {
     public int dwSize;
     public int dwKeepAliveSec;         //心跳间隔（单位：秒,0:默认为15S）
     public int dwTimeOutCount;         //心跳超时次数（0：默认为6）

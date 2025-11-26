@@ -3,7 +3,6 @@ package com.oldwei.isup.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.domain.DeviceRemoteControl;
-import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.tts.DataItem;
@@ -81,19 +80,8 @@ public class MediaStreamController {
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + device.getChannel());
-            if (sessionId == null) {
-                mediaStreamService.preview(device);
-            } else {
-                StreamHandler streamHandler = StreamManager.concurrentMap.get(sessionId);
-                if (device.getIsOnline() == 1) {
-                    if (streamHandler == null) {
-                        log.info("设备{}预览流不存在，开始创建预览流", deviceId);
-                        mediaStreamService.preview(device);
-                    }
-                } else {
-                    return R.fail("设备不在线，无法预览");
-                }
-            }
+            System.out.println("sessionId=" + sessionId);
+            mediaStreamService.preview(device);
             PlayURL playURL = new PlayURL();
 //                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
             playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId());

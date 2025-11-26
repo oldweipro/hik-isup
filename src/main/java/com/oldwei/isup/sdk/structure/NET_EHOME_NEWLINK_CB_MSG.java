@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_NEWLINK_CB_MSG extends Structure {
+public class NET_EHOME_NEWLINK_CB_MSG extends HIKSDKStructure {
     public byte[] szDeviceID = new byte[256];   //设备标示符
     public int iSessionID;     //设备分配给该取流会话的ID
     public int dwChannelNo;    //设备通道号

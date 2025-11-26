@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_ALARM_STATUS_UNION extends Structure {
+public class NET_EHOME_ALARM_STATUS_UNION extends HIKSDKStructure {
     public byte[] byRes = new byte[12]; // 联合体大小
     public NET_EHOME_DEV_STATUS_CHANGED struDevStatusChanged;
     public NET_EHOME_CHAN_STATUS_CHANGED struChanStatusChanged;

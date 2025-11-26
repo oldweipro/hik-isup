@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_XML_REMOTE_CTRL_PARAM extends Structure {
+public class NET_EHOME_XML_REMOTE_CTRL_PARAM extends HIKSDKStructure {
     public int dwSize;
     public Pointer lpInbuffer;
     public int dwInBufferSize;

@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_VOICE_TALK_OUT extends Structure {
+public class NET_EHOME_VOICE_TALK_OUT extends HIKSDKStructure {
     /**
      * 语音对讲请求的会话ID，由设备返回
      */

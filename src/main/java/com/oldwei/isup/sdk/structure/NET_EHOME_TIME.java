@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_TIME extends Structure {
+public class NET_EHOME_TIME extends HIKSDKStructure {
     public short wYear;//年
     public byte byMonth;//月
     public byte byDay;//日

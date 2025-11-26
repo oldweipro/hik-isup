@@ -1,10 +1,10 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 import com.sun.jna.ptr.IntByReference;
 
-public class NET_EHOME_SS_RW_PARAM extends Structure {
+public class NET_EHOME_SS_RW_PARAM extends HIKSDKStructure {
     public Pointer pFileName;   //文件名
     public Pointer pFileBuf;          //文件内容
     public IntByReference dwFileLen;   //文件大小

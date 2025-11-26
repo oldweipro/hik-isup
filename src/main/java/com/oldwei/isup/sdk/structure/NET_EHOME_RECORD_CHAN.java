@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_RECORD_CHAN extends Structure {
+public class NET_EHOME_RECORD_CHAN extends HIKSDKStructure {
     public byte byAnalogChanNum;                    //只读，模拟通道数
     public byte[] byAnalogChan = new byte[32];   //模拟通道，0：不使用；1：使用
     public byte[] byRes1 = new byte[3];                          //保留

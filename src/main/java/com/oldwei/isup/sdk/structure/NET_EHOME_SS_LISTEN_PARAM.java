@@ -5,9 +5,9 @@ import com.oldwei.isup.sdk.service.EHomeSSRWCallBack;
 import com.oldwei.isup.sdk.service.EHomeSSRWCallBackEx;
 import com.oldwei.isup.sdk.service.EHomeSSStorageCallBack;
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_SS_LISTEN_PARAM extends Structure {
+public class NET_EHOME_SS_LISTEN_PARAM extends HIKSDKStructure {
     public NET_EHOME_IPADDRESS struAddress = new NET_EHOME_IPADDRESS(); //本地监听信息，IP为0.0.0.0的情况下，默认为本地地址，多个网卡的情况下，默认为从操作系统获取到的第一个
     public byte[] szKMS_UserName = new byte[512]; //KMS用户名
     public byte[] szKMS_Password = new byte[512]; //KMS用户名

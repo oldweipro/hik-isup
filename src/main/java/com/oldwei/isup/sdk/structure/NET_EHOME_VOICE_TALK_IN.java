@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_VOICE_TALK_IN extends Structure {
+public class NET_EHOME_VOICE_TALK_IN extends HIKSDKStructure {
     public int dwVoiceChan;                                  //通道号
     public NET_EHOME_IPADDRESS struStreamSever;                //流媒体地址
     public byte[] byEncodingType = new byte[9];    //语音对讲编码类型

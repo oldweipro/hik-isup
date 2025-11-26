@@ -2,9 +2,9 @@ package com.oldwei.isup.sdk.structure;
 
 import com.oldwei.isup.sdk.service.VOICETALK_DATA_CB;
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_VOICETALK_NEWLINK_CB_INFO extends Structure {
+public class NET_EHOME_VOICETALK_NEWLINK_CB_INFO extends HIKSDKStructure {
     public byte[] szDeviceID = new byte[256/*256*/];   //设备标示符(出参)
     public int dwEncodeType; // //SDK赋值,当前对讲设备的语音编码类型,0- G722_1，1-G711U，2-G711A，3-G726，4-AAC，5-MP2L2，6-PCM, 7-MP3, 8-G723, 9-MP1L2, 10-ADPCM, 99-RAW(未识别类型)(出参)
     public byte[] sDeviceSerial = new byte[12/*12*/];    //设备序列号，数字序列号(出参)

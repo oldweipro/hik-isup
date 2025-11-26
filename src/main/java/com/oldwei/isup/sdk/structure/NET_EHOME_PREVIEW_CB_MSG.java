@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_PREVIEW_CB_MSG extends Structure {
+public class NET_EHOME_PREVIEW_CB_MSG extends HIKSDKStructure {
     /**
      * NET_DVR_SYSHEAD(1)-码流头，NET_DVR_STREAMDATA(2)-码流数据
      */

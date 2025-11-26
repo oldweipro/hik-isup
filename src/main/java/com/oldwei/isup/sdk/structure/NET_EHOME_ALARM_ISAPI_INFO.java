@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_ALARM_ISAPI_INFO extends Structure {
+public class NET_EHOME_ALARM_ISAPI_INFO extends HIKSDKStructure {
     public Pointer pAlarmData;           // 报警数据
     public int dwAlarmDataLen;   // 报警数据长度
     public byte byDataType;        // 0-invalid,1-xml,2-json

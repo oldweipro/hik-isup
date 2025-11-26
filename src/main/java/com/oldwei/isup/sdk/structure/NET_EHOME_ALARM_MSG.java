@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_ALARM_MSG extends Structure {
+public class NET_EHOME_ALARM_MSG extends HIKSDKStructure {
     public int dwAlarmType;      //报警类型，见EN_ALARM_TYPE
     public Pointer pAlarmInfo;       //报警内容（结构体）
     public int dwAlarmInfoLen;   //结构体报警内容长度

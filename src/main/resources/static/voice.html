@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>移动端录音</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+            text-align: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #3498db;
+            color: white;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin: 20px;
+            font-size: 16px;
+            color: #e74c3c;
+            min-height: 20px;
+        }
+
+        audio {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+<h1>移动端录音</h1>
+<button id="startBtn">开始录音</button>
+<button id="stopBtn" disabled>停止录音</button>
+<button id="uploadBtn" disabled>上传</button>
+<div id="status">请在 HTTPS 环境下运行</div>
+<audio id="playback" controls style="display:none;"></audio>
+
+<script>
+    let audioContext;
+    let scriptNode;
+    let mediaStream;
+    let audioData = [];
+    let recording = false;
+
+    const statusDiv = document.getElementById('status');
+    const playback = document.getElementById('playback');
+
+    // 检查环境
+    function checkEnvironment() {
+        if (!window.isSecureContext) {
+            statusDiv.textContent = '错误：必须在 HTTPS 环境下运行';
+            return false;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusDiv.textContent = '错误：当前浏览器不支持录音功能';
+            return false;
+        }
+
+        return true;
+    }
+
+    // 更灵活的音频约束配置
+    function getAudioConstraints() {
+        // 移动端使用更宽松的约束
+        return {
+            audio: {
+                // 移除不支持的参数，让系统自动选择最佳配置
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+                // 不指定 sampleRate，让系统自动选择
+            }
+        };
+    }
+
+    // 重新设计的录音函数
+    document.getElementById('startBtn').onclick = async () => {
+        if (!checkEnvironment()) return;
+
+        try {
+            statusDiv.textContent = '正在请求麦克风权限...';
+            audioData = [];
+
+            // 使用更宽松的约束
+            const constraints = getAudioConstraints();
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+            // 创建音频上下文（使用设备默认采样率）
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            scriptNode = audioContext.createScriptProcessor(4096, 1, 1);
+
+            scriptNode.onaudioprocess = e => {
+                if (!recording) return;
+                const input = e.inputBuffer.getChannelData(0);
+                audioData.push(new Float32Array(input));
+            };
+
+            source.connect(scriptNode);
+            scriptNode.connect(audioContext.destination);
+
+            recording = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            statusDiv.textContent = `正在录音... (采样率: ${audioContext.sampleRate}Hz)`;
+
+        } catch (err) {
+            console.error('录音错误:', err);
+            let errorMsg = '获取麦克风失败：';
+
+            switch (err.name) {
+                case 'NotAllowedError':
+                    errorMsg += '用户拒绝了麦克风权限';
+                    break;
+                case 'NotFoundError':
+                    errorMsg += '未找到麦克风设备';
+                    break;
+                case 'NotReadableError':
+                    errorMsg += '麦克风被其他应用占用';
+                    break;
+                case 'SecurityError':
+                    errorMsg += '安全限制（非HTTPS环境）';
+                    break;
+                default:
+                    errorMsg += err.message;
+            }
+
+            statusDiv.textContent = errorMsg;
+        }
+    };
+
+    document.getElementById('stopBtn').onclick = async () => {
+        if (!recording) return;
+
+        recording = false;
+
+        // 停止所有媒体轨道
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+        if (scriptNode) {
+            scriptNode.disconnect();
+        }
+
+        if (audioContext) {
+            await audioContext.close();
+        }
+
+        // 合并音频数据
+        const totalLength = audioData.reduce((acc, cur) => acc + cur.length, 0);
+        const result = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of audioData) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        // 创建 WAV 文件（使用实际采样率）
+        window.finalWavBlob = encodeWAV(result, audioContext ? audioContext.sampleRate : 44100);
+
+        const url = URL.createObjectURL(window.finalWavBlob);
+        playback.src = url;
+        playback.style.display = 'block';
+
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('uploadBtn').disabled = false;
+
+        const sizeKB = (window.finalWavBlob.size / 1024).toFixed(1);
+        statusDiv.textContent = `录音完成！大小：${sizeKB} KB，采样率：${audioContext.sampleRate}Hz`;
+    };
+
+    // WAV 编码函数（保持不变）
+    function encodeWAV(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        };
+
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            const s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+
+        return new Blob([buffer], {type: 'audio/wav'});
+    }
+
+    // 上传功能
+    document.getElementById('uploadBtn').onclick = async () => {
+        if (!window.finalWavBlob) return;
+
+        const formData = new FormData();
+        formData.append('file', window.finalWavBlob, 'recording.wav');
+
+        statusDiv.textContent = '正在上传...';
+        document.getElementById('uploadBtn').disabled = true;
+
+        try {
+            const resp = await fetch('/mediaStream/voiceTrans/GG5561970', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await resp.json();
+            statusDiv.textContent = resp.ok ? '上传成功！' + JSON.stringify(result) : '上传失败：' + JSON.stringify(result);
+        } catch (e) {
+            statusDiv.textContent = '上传异常：' + e.message;
+        } finally {
+            document.getElementById('uploadBtn').disabled = false;
+        }
+    };
+
+    // 页面加载时检查环境
+    window.addEventListener('load', () => {
+        if (window.isSecureContext) {
+            statusDiv.textContent = '准备就绪（请允许麦克风权限）';
+        } else {
+            statusDiv.textContent = '错误：必须在 HTTPS 环境下运行';
+        }
+    });
+</script>
+</body>
+</html>

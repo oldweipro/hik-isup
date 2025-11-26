@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * 实时预览数据回调（预览数据存储到文件）
  */
@@ -19,7 +22,9 @@ import org.springframework.stereotype.Component;
 public class FPREVIEW_NEWLINK_CB_FILE implements PREVIEW_NEWLINK_CB {
 
     private final IHikISUPStream hikISUPStream;
-    private final PreviewStreamHandler previewStreamHandler;
+    
+    // 存储每个预览句柄对应的回调处理器实例
+    private final Map<Integer, PreviewStreamHandler> handlerMap = new ConcurrentHashMap<>();
 
     public boolean invoke(int lPreviewHandle, NET_EHOME_NEWLINK_CB_MSG pNewLinkCBMsg, Pointer pUserData) {
         //预览数据回调参数
@@ -29,6 +34,13 @@ public class FPREVIEW_NEWLINK_CB_FILE implements PREVIEW_NEWLINK_CB {
         StreamManager.previewHandSAndSessionIDandMap.put(lPreviewHandle, pNewLinkCBMsg.iSessionID);
         StreamManager.sessionIDAndPreviewHandleMap.put(pNewLinkCBMsg.iSessionID, lPreviewHandle);
         log.info("pNewLinkCBMsg.iSessionID是和预览的时候的sessionID一致的 这个应该是全局唯一 通过sessionID可以确定是哪个摄像头 iSessionID: {}", iSessionID);
+        
+        // 为每个预览会话创建独立的回调处理器实例
+        PreviewStreamHandler previewStreamHandler = handlerMap.computeIfAbsent(lPreviewHandle, handle -> {
+            log.info("创建新的PreviewStreamHandler实例，句柄: {}", handle);
+            return new PreviewStreamHandler();
+        });
+        
         NET_EHOME_PREVIEW_DATA_CB_PARAM struDataCB = new NET_EHOME_PREVIEW_DATA_CB_PARAM();
         struDataCB.fnPreviewDataCB = previewStreamHandler;
 
@@ -38,5 +50,29 @@ public class FPREVIEW_NEWLINK_CB_FILE implements PREVIEW_NEWLINK_CB {
         }
         return true;
 
+    }
+    
+    /**
+     * 关闭指定句柄的预览流处理器
+     * @param lPreviewHandle 预览句柄
+     */
+    public void closePreviewHandler(int lPreviewHandle) {
+        PreviewStreamHandler handler = handlerMap.remove(lPreviewHandle);
+        if (handler != null) {
+            handler.closeAllConnections();
+            log.info("已关闭PreviewStreamHandler，句柄: {}", lPreviewHandle);
+        }
+    }
+    
+    /**
+     * 关闭所有预览流处理器
+     */
+    public void closeAllPreviewHandlers() {
+        handlerMap.forEach((handle, handler) -> {
+            handler.closeAllConnections();
+            log.info("已关闭PreviewStreamHandler，句柄: {}", handle);
+        });
+        handlerMap.clear();
+        log.info("已关闭所有PreviewStreamHandler");
     }
 }

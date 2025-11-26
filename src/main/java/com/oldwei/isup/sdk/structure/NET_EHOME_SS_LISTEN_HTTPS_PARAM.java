@@ -1,8 +1,8 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_SS_LISTEN_HTTPS_PARAM extends Structure {
+public class NET_EHOME_SS_LISTEN_HTTPS_PARAM extends HIKSDKStructure {
     public byte byHttps; //0-不启用HTTPS 1-启用HTTPS
     public byte byVerifyMode; //0-单向认证(暂只支持单向认证)
     public byte byCertificateFileType; //证书类型0-pem, 1-ANS1

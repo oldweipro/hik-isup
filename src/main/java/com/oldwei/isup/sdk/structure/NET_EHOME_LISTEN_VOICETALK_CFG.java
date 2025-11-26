@@ -2,9 +2,9 @@ package com.oldwei.isup.sdk.structure;
 
 import com.oldwei.isup.sdk.service.VOICETALK_NEWLINK_CB;
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_LISTEN_VOICETALK_CFG extends Structure {
+public class NET_EHOME_LISTEN_VOICETALK_CFG extends HIKSDKStructure {
     public NET_EHOME_IPADDRESS struIPAdress;       //本地监听信息，IP为0.0.0.0的情况下，默认为本地地址，
     //多个网卡的情况下，默认为从操作系统获取到的第一个
     public VOICETALK_NEWLINK_CB fnNewLinkCB;   //新连接回调函数

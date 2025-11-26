@@ -1,9 +1,9 @@
 package com.oldwei.isup.sdk.structure;
 
 import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
-public class NET_EHOME_PTXML_PARAM extends Structure {
+public class NET_EHOME_PTXML_PARAM extends HIKSDKStructure {
     public Pointer pRequestUrl;        //请求URL
     public int dwRequestUrlLen;    //请求URL长度
     public Pointer pCondBuffer;        //条件缓冲区（XML格式数据）

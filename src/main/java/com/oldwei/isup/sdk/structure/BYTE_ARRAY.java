@@ -1,11 +1,11 @@
 package com.oldwei.isup.sdk.structure;
 
-import com.sun.jna.Structure;
+import com.oldwei.isup.sdk.HIKSDKStructure;
 
 import java.util.Arrays;
 import java.util.List;
 
-public class BYTE_ARRAY extends Structure {
+public class BYTE_ARRAY extends HIKSDKStructure {
     public byte[] byValue;
 
     public BYTE_ARRAY(int iLen) {

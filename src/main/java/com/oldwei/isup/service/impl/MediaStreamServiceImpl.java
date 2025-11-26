@@ -1,5 +1,7 @@
 package com.oldwei.isup.service.impl;
 
+import com.aizuda.zlm4j.core.ZLMApi;
+import com.aizuda.zlm4j.structure.MK_RTP_SERVER;
 import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.handler.StreamHandler;
@@ -7,20 +9,22 @@ import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
 import com.oldwei.isup.sdk.service.IHikISUPStream;
-import com.oldwei.isup.sdk.service.IHikNet;
 import com.oldwei.isup.sdk.structure.*;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
 import lombok.RequiredArgsConstructor;
-import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 @Slf4j
@@ -33,27 +37,32 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final HCISUPCMS hcisupcms;
     private final IDeviceService deviceService;
     private final HikStreamProperties hikStreamProperties;
-    private final IHikNet hikNet;
+    private final ZLMApi zlmApi;
+    // 每个设备一个 latch，用于控制阻塞/停止
+    private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
+    
+    // RTP端口管理：起始端口
+    private static final int RTP_PORT_START = 30002;
+    private static final int RTP_PORT_END = 30100;
+    // 存储已分配的端口
+    private final Map<Integer, Boolean> allocatedPorts = new ConcurrentHashMap<>();
+    // 存储 sessionID 对应的 RTP 端口
+    private final Map<Integer, Integer> sessionRtpPortMap = new ConcurrentHashMap<>();
 
     @Override
-    @Synchronized
+    @Async("streamExecutor")
     public void preview(Device device) {
-        Integer key = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + device.getChannel());
-        if (key != null) {
-            StreamHandler streamHandler = StreamManager.concurrentMap.get(key);
-            if (streamHandler != null) {
-                log.info("预览已存在，忽略本次预览请求，deviceId: {}", device.getDeviceId());
-                return;
-            }
-        }
+        CountDownLatch latch = new CountDownLatch(1);
+        latchMap.put(device.getDeviceId(), latch);
         try {
             // 创建异步控制器
-            CompletableFuture<String> completableFuture = new CompletableFuture<>();
-            RealPlay(device, completableFuture);
-            String result = completableFuture.get();
-            log.info("异步结果是: {}", result);
-        } catch (InterruptedException | ExecutionException e) {
+            RealPlay(device);
+            // 阻塞，直到 stopPreview() 调用 latch.countDown()
+            latch.await();
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
+        } finally {
+            latchMap.remove(device.getDeviceId());
         }
     }
 
@@ -81,6 +90,14 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 streamHandler.stopProcessing();
                 StreamManager.concurrentMap.remove(sessionId);
             }
+            
+            // 释放RTP端口
+            Integer rtpPort = sessionRtpPortMap.remove(sessionId);
+            if (rtpPort != null) {
+                releaseRtpPort(rtpPort);
+                StreamManager.sessionIDAndRtpPortMap.remove(sessionId);
+            }
+            
             StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
         }
         StreamManager.userIDandSessionMap.remove(loginId);
@@ -90,7 +107,40 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 && !StreamManager.sessionIDAndPreviewHandleMap.containsKey(sessionId)) {
             log.info("会话: {} 相关资源已被清空", sessionId);
         }
+        MK_RTP_SERVER mkRtpServer = StreamManager.deviceRTP.get(device.getDeviceId());
+        zlmApi.mk_rtp_server_release(mkRtpServer);
         log.info("CMS已发送停止预览请求");
+        CountDownLatch latch = latchMap.get(device.getDeviceId());
+        if (latch != null) {
+            latch.countDown(); // 唤醒 preview
+            log.info("结束预览实例: {}", device.getDeviceId());
+        }
+    }
+
+    /**
+     * 分配一个可用的RTP端口
+     * @return 可用端口号，如果无可用端口返回 -1
+     */
+    private synchronized int allocateRtpPort() {
+        for (int port = RTP_PORT_START; port <= RTP_PORT_END; port++) {
+            if (!allocatedPorts.getOrDefault(port, false)) {
+                allocatedPorts.put(port, true);
+                log.info("分配RTP端口: {}", port);
+                return port;
+            }
+        }
+        log.error("无可用RTP端口，当前范围: {}-{}", RTP_PORT_START, RTP_PORT_END);
+        return -1;
+    }
+    
+    /**
+     * 释放RTP端口
+     * @param port 要释放的端口号
+     */
+    private synchronized void releaseRtpPort(int port) {
+        if (allocatedPorts.remove(port) != null) {
+            log.info("释放RTP端口: {}", port);
+        }
     }
 
     /**
@@ -98,7 +148,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      *
      * @return sessionID 会话id
      */
-    public void RealPlay(Device device, CompletableFuture<String> completableFuture) {
+    public void RealPlay(Device device) {
         NET_EHOME_PREVIEWINFO_IN_V11 struPreviewInV11 = new NET_EHOME_PREVIEWINFO_IN_V11();
         struPreviewInV11.iChannel = device.getChannel(); //通道号
         struPreviewInV11.dwLinkMode = 0; //0- TCP方式，1- UDP方式
@@ -128,16 +178,25 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             if (!hcisupcms.NET_ECMS_StartPushRealStream(device.getLoginId(), struPushInfoIn, struPushInfoOut)) {
                 log.error("NET_ECMS_StartPushRealStream failed, error code: {}", hcisupcms.NET_ECMS_GetLastError());
             } else {
-                log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}", struPushInfoIn.lSessionID);
+                // 动态分配RTP端口
+                int rtpPort = allocateRtpPort();
+                if (rtpPort == -1) {
+                    log.error("无法分配RTP端口，预览失败");
+                    return;
+                }
+                
+                MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "live", device.getDeviceId());
+                StreamManager.deviceRTP.put(device.getDeviceId(), mkRtpServer);
+                
+                // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
+                StreamManager.sessionIDAndRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
+                sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
+                
+                log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", struPushInfoIn.lSessionID, rtpPort);
                 if (StreamManager.concurrentMap.get(struPushInfoIn.lSessionID) == null) {
                     int loginchannelId = device.getLoginId() * 100 + device.getChannel();
                     StreamManager.loginchannelIdAndstopflag.put(loginchannelId, false);
                     StreamManager.userIDandSessionMap.put(loginchannelId, struPushInfoIn.lSessionID);
-                    // "rtmp://localhost:1935/live/ipc"
-                    String rtmpUrl = "rtmp://" + hikStreamProperties.getRtmp().getListenIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId();
-                    log.info("rtmp推流地址: {}", rtmpUrl);
-                    StreamManager.concurrentMap.put(struPushInfoIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, 1, loginchannelId));
-                    log.info("加入concurrentMap deviceId: {}", device.getDeviceId());
                 }
             }
         }
