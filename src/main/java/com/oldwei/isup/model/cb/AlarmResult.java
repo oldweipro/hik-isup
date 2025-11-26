@@ -24,7 +24,7 @@ class AlarmFace {
     private Integer faceId;
     private String contentID;
     @JsonProperty("URL")
-    private String URL;
+    private String url;
     private List<AlarmIdentify> identify;
 }
 

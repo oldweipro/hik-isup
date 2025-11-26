@@ -71,7 +71,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                         UploadData uploadData = new UploadData();
                         if (StringUtils.equals("1", dataType)) {
                             try {
-//                                log.info("ISAPI报警XML数据: {}", data);
+                                log.info("ISAPI报警XML数据: {}", data);
                                 EventNotificationAlert eventNotificationAlert = XmlUtil.fromXml(data, EventNotificationAlert.class);
                                 if (eventNotificationAlert != null) {
                                     String jsonString = mapper.writeValueAsString(eventNotificationAlert);
@@ -99,16 +99,16 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     log.info("检测到人脸抓拍：{}", jsonString);
                                     uploadData.setData(jsonString);
                                 } else if (event instanceof GPSUploadEvent gpsEvent) {
-//                            log.info("GPS 上报：{}", gpsEvent.getGps());
+                                    // log.info("GPS 上报：{}", gpsEvent.getGps());
                                     uploadData.setDataType("GPS");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(gpsEvent);
                                     uploadData.setData(jsonString);
                                 } else if (event instanceof AlarmResultEvent alarmResultEvent) {
-                                    log.info("AlarmResultEvent 上报：{}", alarmResultEvent.getAlarmResult());
                                     uploadData.setDataType("AlarmResult");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(alarmResultEvent);
+                                    log.info("AlarmResultEvent 上报：{}", jsonString);
                                     uploadData.setData(jsonString);
                                 } else {
                                     log.info("未知事件类型：{}", event.getEventType());
@@ -122,7 +122,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                 }, error -> {
                                     log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                 });
-                                
+
                             } catch (Exception e) {
                                 // 或者使用日志记录
                                 log.error("解析设备事件失败: {}\n 消息内容： {}", e.getMessage(), data);
