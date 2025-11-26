@@ -24,7 +24,7 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
         int seqNum = 0;
         int timestamp = 0;
     }
-    
+
     // 使用线程安全的 Map 存储每个句柄对应的连接
     private final Map<Integer, RtpConnection> connectionMap = new ConcurrentHashMap<>();
 
@@ -36,14 +36,14 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
             log.error("未找到预览句柄 {} 对应的 sessionID", iPreviewHandle);
             return;
         }
-        
+
         // 通过 sessionID 获取对应的 RTP 端口
         Integer rtpPort = StreamManager.sessionIDAndRtpPortMap.get(sessionID);
         if (rtpPort == null) {
             log.error("未找到 sessionID {} 对应的 RTP 端口", sessionID);
             return;
         }
-        
+
         // 获取或创建该句柄对应的连接
         RtpConnection connection = connectionMap.computeIfAbsent(iPreviewHandle, handle -> {
             RtpConnection conn = new RtpConnection();
@@ -58,16 +58,15 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
             }
             return conn;
         });
-        
+
         if (connection == null || connection.rtpOutputStream == null) {
             log.error("RTP连接不可用，句柄: {}", iPreviewHandle);
             return;
         }
-        
+
         byte[] dataStream = pPreviewCBMsg.pRecvdata.getByteArray(0, pPreviewCBMsg.dwDataLen);
         connection.count++;
         if (dataStream != null && dataStream.length > 0) {
-//            Integer sessionID = StreamManager.previewHandSAndSessionIDandMap.get(iPreviewHandle);
             if (connection.count > 100) {
                 log.info("预览数据回调：预览句柄={}, 数据长度={}", iPreviewHandle, dataStream.length);
                 connection.count = 0;
@@ -123,16 +122,12 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
 
                 }
             }
-
-//            if (streamHandler != null) {
-//                // 如果报错，应该关闭预览
-//                streamHandler.processStream(dataStream);
-//            }
         }
     }
 
     /**
      * 关闭指定句柄的RTP连接
+     *
      * @param iPreviewHandle 预览句柄
      */
     public void closeConnection(int iPreviewHandle) {
@@ -151,7 +146,7 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
             }
         }
     }
-    
+
     /**
      * 关闭所有RTP连接
      */
@@ -159,7 +154,7 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
         connectionMap.keySet().forEach(this::closeConnection);
         log.info("已关闭所有RTP连接");
     }
-    
+
     /**
      * 将int值转换为4字节的字节数组 大端序
      *

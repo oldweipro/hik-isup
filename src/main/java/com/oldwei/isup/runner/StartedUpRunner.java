@@ -138,21 +138,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
                 System.exit(1);
             }
         }
-        log.info("========================= 启动CMS =========================");
-        NET_EHOME_CMS_LISTEN_PARAM struCMSListenPara = new NET_EHOME_CMS_LISTEN_PARAM();
-        System.arraycopy(hikIsupProperties.getCmsServer().getIp().getBytes(), 0, struCMSListenPara.struAddress.szIP, 0, hikIsupProperties.getCmsServer().getIp().length());
-        struCMSListenPara.struAddress.wPort = Short.parseShort(hikIsupProperties.getCmsServer().getPort());
-        struCMSListenPara.fnCB = fRegisterCallBack;
-        struCMSListenPara.write();
-        //启动监听，接收设备注册信息
-        int CmsHandle = hcisupcms.NET_ECMS_StartListen(struCMSListenPara);
-        if (CmsHandle < 0) {
-            hcisupcms.NET_ECMS_Fini();
-            log.error("NET_ECMS_StartListen failed, error code: {}", hcisupcms.NET_ECMS_GetLastError());
-        } else {
-            String CmsListenInfo = new String(struCMSListenPara.struAddress.szIP).trim() + "_" + struCMSListenPara.struAddress.wPort;
-            log.info("register service: {}, NET_ECMS_StartListen succeed!", CmsListenInfo);
-        }
 
         log.info("=========================  流媒体服务(需要预览取流时使用)  =========================");
         NET_EHOME_LISTEN_PREVIEW_CFG netEhomeListenPreviewCfg = new NET_EHOME_LISTEN_PREVIEW_CFG();
@@ -209,6 +194,23 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
             String BackStreamListenInfo = new String(struPlayBackListen.struIPAdress.szIP).trim() + "_" + struPlayBackListen.struIPAdress.wPort;
             System.out.println("回放流媒体服务：" + BackStreamListenInfo + ",NET_ESTREAM_StartListenPlayBack succeed");
         }
+
+        log.info("========================= 启动CMS =========================");
+        NET_EHOME_CMS_LISTEN_PARAM struCMSListenPara = new NET_EHOME_CMS_LISTEN_PARAM();
+        System.arraycopy(hikIsupProperties.getCmsServer().getIp().getBytes(), 0, struCMSListenPara.struAddress.szIP, 0, hikIsupProperties.getCmsServer().getIp().length());
+        struCMSListenPara.struAddress.wPort = Short.parseShort(hikIsupProperties.getCmsServer().getPort());
+        struCMSListenPara.fnCB = fRegisterCallBack;
+        struCMSListenPara.write();
+        //启动监听，接收设备注册信息
+        int CmsHandle = hcisupcms.NET_ECMS_StartListen(struCMSListenPara);
+        if (CmsHandle < 0) {
+            hcisupcms.NET_ECMS_Fini();
+            log.error("NET_ECMS_StartListen failed, error code: {}", hcisupcms.NET_ECMS_GetLastError());
+        } else {
+            String CmsListenInfo = new String(struCMSListenPara.struAddress.szIP).trim() + "_" + struCMSListenPara.struAddress.wPort;
+            log.info("register service: {}, NET_ECMS_StartListen succeed!", CmsListenInfo);
+        }
+
         log.info("========================= 项目启动完成 =========================");
     }
 

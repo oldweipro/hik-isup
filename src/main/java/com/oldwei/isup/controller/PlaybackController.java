@@ -8,7 +8,6 @@ import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
-import com.oldwei.isup.util.StreamHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,14 +53,7 @@ public class PlaybackController {
             Device device = deviceOpt.get();
             Integer loginId = device.getLoginId();
             Integer sessionId = StreamManager.playbackUserIDandSessionMap.get(loginId);
-            if (sessionId == null) {
-                mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
-            } else {
-                StreamHandler streamHandler = StreamManager.playbackConcurrentMap.get(sessionId);
-                if (streamHandler == null) {
-                    mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
-                }
-            }
+            mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
         } else {
             log.info("Device not found for playback");
             return R.fail("Failed to start playback");

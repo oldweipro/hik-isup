@@ -11,7 +11,6 @@ import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.structure.*;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
-import com.oldwei.isup.util.StreamHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,10 +21,8 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service("mediaStreamService")
@@ -84,13 +81,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             if (!hcisupcms.NET_ECMS_StopGetRealStream(loginId, sessionId)) {
                 log.error("NET_ECMS_StopGetRealStream failed,err = {}", hcisupcms.NET_ECMS_GetLastError());
             }
-            // 销毁streamHandler对象
-            StreamHandler streamHandler = StreamManager.concurrentMap.get(sessionId);
-            if (streamHandler != null) {
-                streamHandler.stopProcessing();
-                StreamManager.concurrentMap.remove(sessionId);
-            }
-
             // 释放RTP端口
             Integer rtpPort = sessionRtpPortMap.remove(sessionId);
             if (rtpPort != null) {
@@ -101,8 +91,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
         }
         StreamManager.userIDandSessionMap.remove(loginId);
-        if (!StreamManager.concurrentMap.containsKey(sessionId)
-                && !StreamManager.previewHandSAndSessionIDandMap.containsKey(previewHandleId)
+        if (!StreamManager.previewHandSAndSessionIDandMap.containsKey(previewHandleId)
                 && !StreamManager.userIDandSessionMap.containsKey(loginId)
                 && !StreamManager.sessionIDAndPreviewHandleMap.containsKey(sessionId)) {
             log.info("会话: {} 相关资源已被清空", sessionId);
@@ -195,11 +184,12 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
 
                 log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", struPushInfoIn.lSessionID, rtpPort);
-                if (StreamManager.concurrentMap.get(struPushInfoIn.lSessionID) == null) {
-                    int loginchannelId = device.getLoginId() * 100 + device.getChannel();
-                    StreamManager.loginchannelIdAndstopflag.put(loginchannelId, false);
-                    StreamManager.userIDandSessionMap.put(loginchannelId, struPushInfoIn.lSessionID);
-                }
+
+
+                //TODO
+                int loginchannelId = device.getLoginId() * 100 + device.getChannel();
+                StreamManager.loginchannelIdAndstopflag.put(loginchannelId, false);
+                StreamManager.userIDandSessionMap.put(loginchannelId, struPushInfoIn.lSessionID);
             }
         }
     }
@@ -268,21 +258,20 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             System.out.println("NET_ECMS_StartPushPlayBack failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
         } else {
             System.out.println("NET_ECMS_StartPushPlayBack succeed, sessionID:" + m_struPushPlayBackIn.lSessionID + ",lUserID:" + loginId);
-            try {
-                // 创建异步控制器
-                CompletableFuture<String> completableFuture = new CompletableFuture<>();
-                String rtmpUrl = "rtmp://" + hikStreamProperties.getRtmp().getListenIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/playback/" + deviceId;
-                log.info("回放rtmp推流地址: {}", rtmpUrl);
-                int loginchannelId = loginId * 100 + channelId;
-                StreamManager.playbackLoginchannelIdAndstopflag.put(loginchannelId, false);
-                StreamManager.playbackUserIDandSessionMap.put(loginchannelId, m_struPushPlayBackIn.lSessionID);
-                StreamManager.playbackConcurrentMap.put(m_struPushPlayBackIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, 2, loginchannelId));
-                String result = completableFuture.get();
-                log.info("回放异步结果是: {}", result);
-//                waitingForPlayback(loginId);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
+            // 创建异步控制器
+            int loginchannelId = loginId * 100 + channelId;
+            StreamManager.playbackLoginchannelIdAndstopflag.put(loginchannelId, false);
+            StreamManager.playbackUserIDandSessionMap.put(loginchannelId, m_struPushPlayBackIn.lSessionID);
+//                StreamManager.playbackConcurrentMap.put(m_struPushPlayBackIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, 2, loginchannelId));
+
+            // 动态分配RTP端口
+            int rtpPort = allocateRtpPort();
+            if (rtpPort == -1) {
+                log.error("无法分配RTP端口，预览失败");
+                return;
             }
+            MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "playback", deviceId);
+            StreamManager.deviceRTPPlayback.put(deviceId, mkRtpServer);
         }
     }
 
@@ -302,14 +291,10 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             System.out.println("停止回放Stream服务的实时流转发");
 
             Integer lPreviewHandle = StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID);
-            StreamHandler streamHandler = StreamManager.playbackConcurrentMap.get(lSessionID);
-            streamHandler.stopProcessing();
-            StreamManager.playbackConcurrentMap.remove(lSessionID);
             StreamManager.playbackSessionIDAndPreviewHandleMap.remove(lSessionID);
             StreamManager.playbackPreviewHandSAndSessionIDandMap.remove(lPreviewHandle);
             StreamManager.playbackUserIDandSessionMap.remove(loginId);
-            if (!StreamManager.playbackConcurrentMap.containsKey(lSessionID)
-                    && !StreamManager.playbackPreviewHandSAndSessionIDandMap.containsKey(lPreviewHandle)
+            if (!StreamManager.playbackPreviewHandSAndSessionIDandMap.containsKey(lPreviewHandle)
                     && !StreamManager.playbackUserIDandSessionMap.containsKey(loginId)
                     && !StreamManager.playbackSessionIDAndPreviewHandleMap.containsKey(lSessionID)) {
                 log.info("会话:{} 相关资源已被清空", lSessionID);
