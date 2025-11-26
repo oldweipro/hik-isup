@@ -9,7 +9,7 @@ import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
 import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.structure.*;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.service.IMediaStreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +32,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final HikIsupProperties hikIsupProperties;
     private final IHikISUPStream hikISUPStream;
     private final HCISUPCMS hcisupcms;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
     private final HikStreamProperties hikStreamProperties;
     private final ZLMApi zlmApi;
     // 每个设备一个 latch，用于控制阻塞/停止
@@ -184,12 +184,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
 
                 log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", struPushInfoIn.lSessionID, rtpPort);
-
-
-                //TODO
-                int loginchannelId = device.getLoginId() * 100 + device.getChannel();
-                StreamManager.loginchannelIdAndstopflag.put(loginchannelId, false);
-                StreamManager.userIDandSessionMap.put(loginchannelId, struPushInfoIn.lSessionID);
             }
         }
     }

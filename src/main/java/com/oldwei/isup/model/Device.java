@@ -1,14 +1,11 @@
 package com.oldwei.isup.model;
 
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
 
 @Data
-@TableName("device")
 public class Device implements Serializable {
 
     @Serial
@@ -16,7 +13,6 @@ public class Device implements Serializable {
     /**
      * 设备id
      */
-    @TableId
     private Long id;
     /**
      * 父级ID

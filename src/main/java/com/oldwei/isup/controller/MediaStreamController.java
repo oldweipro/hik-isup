@@ -1,6 +1,5 @@
 package com.oldwei.isup.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.DeviceRemoteControl;
@@ -11,7 +10,7 @@ import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.model.xml.PpvspMessage;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.service.IMediaStreamService;
 import com.oldwei.isup.util.WebFluxHttpUtil;
 import lombok.RequiredArgsConstructor;
@@ -45,19 +44,23 @@ import java.util.UUID;
 public class MediaStreamController {
     private final IMediaStreamService mediaStreamService;
     private final CmsUtil cmsUtil;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
     private final HikStreamProperties hikStreamProperties;
 
     private static final String UPLOAD_DIR = "upload/audio/";
 
     @GetMapping("/deviceList")
     public R<List<Device>> getDeviceList(Device device) {
-        LambdaQueryWrapper<Device> queryWrapper = new LambdaQueryWrapper<>();
-        if (device.getDeviceId() != null && !device.getDeviceId().isEmpty()) {
-            queryWrapper.like(Device::getDeviceId, device.getDeviceId());
-        }
-        queryWrapper.eq(device.getIsOnline() != null, Device::getIsOnline, device.getIsOnline());
-        List<Device> devices = deviceService.list(queryWrapper);
+        List<Device> devices = deviceCacheService.list(d -> {
+            boolean match = true;
+            if (device.getDeviceId() != null && !device.getDeviceId().isEmpty()) {
+                match = d.getDeviceId().contains(device.getDeviceId());
+            }
+            if (match && device.getIsOnline() != null) {
+                match = device.getIsOnline().equals(d.getIsOnline());
+            }
+            return match;
+        });
         return R.ok(devices);
     }
 
@@ -76,7 +79,7 @@ public class MediaStreamController {
      */
     @PostMapping("/preview/{deviceId}")
     public R<PlayURL> startPreview(@PathVariable String deviceId) {
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + device.getChannel());
@@ -92,7 +95,7 @@ public class MediaStreamController {
 
     @DeleteMapping("/preview/{deviceId}")
     public R<Boolean> stopPreview(@PathVariable String deviceId) {
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         deviceOpt.ifPresent(mediaStreamService::stopPreview);
         return R.ok(true);
     }
@@ -141,12 +144,12 @@ public class MediaStreamController {
      */
     @GetMapping("/cachedDeviceList")
     public List<Device> deviceList() {
-        return deviceService.list();
+        return deviceCacheService.listAll();
     }
 
     @GetMapping("/device/{deviceId}")
     public DeviceRemoteControl device(@PathVariable String deviceId) {
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             PpvspMessage ppvspMessage = cmsUtil.CMS_XMLRemoteControl(device.getLoginId());
@@ -174,8 +177,7 @@ public class MediaStreamController {
         Path pcmTargetPath = Paths.get(UPLOAD_DIR, pcmFilename);
 
         // 2. 查询设备
-        Optional<Device> deviceOpt = deviceService.getOneOpt(
-                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
 
         if (deviceOpt.isEmpty()) {
             return Mono.just(R.fail("设备ID不存在: " + deviceId));
@@ -287,8 +289,7 @@ public class MediaStreamController {
         Path targetPath = Paths.get(UPLOAD_DIR, filename);
 
         // 2. 查询设备
-        Optional<Device> deviceOpt = deviceService.getOneOpt(
-                new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
 
         if (deviceOpt.isEmpty()) {
             return Mono.just(R.fail("设备ID不存在: " + deviceId));

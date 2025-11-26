@@ -1,11 +1,10 @@
 package com.oldwei.isup.sdk.isapi;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.xml.DeviceInfo;
 import com.oldwei.isup.model.xml.InputProxyChannelStatusList;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.util.XmlUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +17,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ISAPIService {
     private final CmsUtil cmsUtil;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
 
 
     /**
@@ -88,7 +87,7 @@ public class ISAPIService {
      * @param durationMs 持续时间（毫秒）
      */
     public void controlPtz(String deviceId, int panSpeed, int tiltSpeed, int durationMs) {
-        Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> oneOpt = deviceCacheService.getByDeviceId(deviceId);
         if (oneOpt.isPresent()) {
             Device device = oneOpt.get();
             int userId = device.getLoginId();

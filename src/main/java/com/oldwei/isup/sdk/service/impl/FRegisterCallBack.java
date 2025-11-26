@@ -1,6 +1,5 @@
 package com.oldwei.isup.sdk.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.service.DEVICE_REGISTER_CB;
@@ -10,7 +9,7 @@ import com.oldwei.isup.sdk.service.constant.EHOME_REGISTER_TYPE;
 import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_REG_INFO_V12;
 import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_SESSIONKEY;
 import com.oldwei.isup.sdk.structure.NET_EHOME_SERVER_INFO_V50;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.service.IMediaStreamService;
 import com.sun.jna.Pointer;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +25,7 @@ import java.util.Optional;
 public class FRegisterCallBack implements DEVICE_REGISTER_CB {
     private final HikIsupProperties hikIsupProperties;
     private final HCISUPCMS hcisupcms;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
     private final IMediaStreamService mediaStreamService;
     private final IHikISUPAlarm hikISUPAlarm;
 
@@ -110,22 +109,18 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 // FIXME demo逻辑中默认只支持一台设备的功能演示，多台设备需要自行调整这里设备登录后的句柄信息
                 String deviceId = new String(strDevRegInfo.struRegInfo.byDeviceID).trim();
                 log.info("Device online, DeviceID is: {}", deviceId);
-                Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+                Optional<Device> oneOpt = deviceCacheService.getByDeviceId(deviceId);
                 Device device = oneOpt.orElseGet(Device::new);
                 device.setDeviceId(deviceId);
                 device.setLoginId(lUserID);
                 device.setIsOnline(1);
                 log.info("{}", device);
-                boolean b = deviceService.saveOrUpdate(device);
-                if (b) {
-                    log.info("设备{}上线，登录句柄{}", deviceId, lUserID);
-                } else {
-                    log.error("设备{}上线，保存登录句柄{}失败", deviceId, lUserID);
-                }
+                deviceCacheService.saveOrUpdate(device);
+                log.info("设备{}上线，登录句柄{}", deviceId, lUserID);
                 return true;
             case EHOME_REGISTER_TYPE.ENUM_DEV_OFF:
                 log.info("设备下线回调 Device off, lUserID is: {}", lUserID);
-                List<Device> deviceList = deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getLoginId, lUserID));
+                List<Device> deviceList = deviceCacheService.getByLoginId(lUserID);
                 if (deviceList.isEmpty()) {
                     log.warn("未找到登录句柄{}对应的设备", lUserID);
                 } else {
@@ -138,12 +133,8 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                         device1.setIsOnline(0);
                         device1.setLoginId(-1);
                         device1.setChannel(-1);
-                        boolean flag = deviceService.saveOrUpdate(device1);
-                        if (flag) {
-                            log.info("设备{}下线，清除登录句柄{}", device1.getDeviceId(), lUserID);
-                        } else {
-                            log.error("设备{}下线，清除登录句柄{}失败", device1.getDeviceId(), lUserID);
-                        }
+                        deviceCacheService.saveOrUpdate(device1);
+                        log.info("设备{}下线，清除登录句柄{}", device1.getDeviceId(), lUserID);
                     });
                 }
                 break;

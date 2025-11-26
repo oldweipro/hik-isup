@@ -1,9 +1,8 @@
 package com.oldwei.isup.sdk.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oldwei.isup.config.HikPlatformProperties;
 import com.oldwei.isup.model.AlarmType;
-import com.oldwei.isup.model.PushDataConfig;
 import com.oldwei.isup.model.cb.*;
 import com.oldwei.isup.model.vo.UploadData;
 import com.oldwei.isup.model.xml.EventNotificationAlert;
@@ -12,7 +11,6 @@ import com.oldwei.isup.sdk.service.EHomeMsgCallBack;
 import com.oldwei.isup.sdk.structure.BYTE_ARRAY;
 import com.oldwei.isup.sdk.structure.NET_EHOME_ALARM_ISAPI_INFO;
 import com.oldwei.isup.sdk.structure.NET_EHOME_ALARM_MSG;
-import com.oldwei.isup.service.IPushDataConfigService;
 import com.oldwei.isup.util.CommonMethod;
 import com.oldwei.isup.util.WebFluxHttpUtil;
 import com.oldwei.isup.util.XmlUtil;
@@ -22,14 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 @Slf4j
 @Service("alarmMsgCallBack")
 @RequiredArgsConstructor
 public class AlarmMsgCallBack implements EHomeMsgCallBack {
-
-    private final IPushDataConfigService pushDataConfigService;
+    private final HikPlatformProperties hikPlatformProperties;
 
     @Override
     public boolean invoke(int iHandle, NET_EHOME_ALARM_MSG pAlarmMsg, Pointer pUser) {
@@ -73,11 +68,6 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
 //                        log.info("ISAPI报警数据类型: {}", dataType);
                         String data = new String(m_strISAPIData.byValue).trim();
 
-                        List<PushDataConfig> list = pushDataConfigService.list(new LambdaQueryWrapper<PushDataConfig>().eq(PushDataConfig::getEnable, 1));
-                        if (list.isEmpty()) {
-                            log.warn("未配置数据推送，请先配置推送参数");
-                            return true;
-                        }
                         UploadData uploadData = new UploadData();
                         if (StringUtils.equals("1", dataType)) {
                             try {
@@ -88,13 +78,11 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     log.info("eventNotificationAlert事件消息：{}", jsonString);
                                     uploadData.setDataType("ANPR");
                                     uploadData.setData(jsonString);
-                                    list.forEach(config -> {
-                                        String pushPath = config.getPushPath();
-                                        WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-                                            log.info("推送到 {} 返回结果：{}", pushPath, resp);
-                                        }, error -> {
-                                            log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
-                                        });
+                                    String pushPath = hikPlatformProperties.getPushAddress();
+                                    WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
+                                        log.info("推送到 {} 返回结果：{}", pushPath, resp);
+                                    }, error -> {
+                                        log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                     });
                                 }
                             } catch (Exception e) {
@@ -127,14 +115,14 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     String jsonString = mapper.writeValueAsString(event);
                                     uploadData.setDataType(jsonString);
                                 }
-                                list.forEach(config -> {
-                                    String pushPath = config.getPushPath();
-                                    WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-                                        log.info("推送到 {} 返回结果：{}", pushPath, resp);
-                                    }, error -> {
-                                        log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
-                                    });
+
+                                String pushPath = hikPlatformProperties.getPushAddress();
+                                WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
+                                    log.info("推送到 {} 返回结果：{}", pushPath, resp);
+                                }, error -> {
+                                    log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                 });
+                                
                             } catch (Exception e) {
                                 // 或者使用日志记录
                                 log.error("解析设备事件失败: {}\n 消息内容： {}", e.getMessage(), data);

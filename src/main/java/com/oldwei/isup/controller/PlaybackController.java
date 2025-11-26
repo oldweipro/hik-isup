@@ -1,12 +1,11 @@
 package com.oldwei.isup.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.sdk.StreamManager;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.service.IMediaStreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +24,7 @@ import java.util.Optional;
 public class PlaybackController {
 
     private final IMediaStreamService mediaStreamService;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
     private final HikStreamProperties hikStreamProperties;
 
     @GetMapping("start")
@@ -48,7 +47,7 @@ public class PlaybackController {
         String httpFlv = "http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/playback/" + deviceId + ".live.flv";
         log.info("回放httpFlv播放地址：{}", httpFlv);
         // Implementation for playback by time
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             Integer loginId = device.getLoginId();
@@ -59,7 +58,6 @@ public class PlaybackController {
             return R.fail("Failed to start playback");
         }
         PlayURL playURL = new PlayURL();
-//        playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
         playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/playback/" + deviceId);
         playURL.setHttpFlv(httpFlv);
         return R.ok(playURL);
@@ -67,7 +65,7 @@ public class PlaybackController {
 
     @GetMapping("stop")
     public R<String> stopPlayBackByTime(String deviceId) {
-        Optional<Device> deviceOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>().eq(Device::getDeviceId, deviceId));
+        Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         if (deviceOpt.isPresent()) {
             Device device = deviceOpt.get();
             Integer loginId = device.getLoginId();

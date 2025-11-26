@@ -1,10 +1,9 @@
 package com.oldwei.isup.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.sdk.isapi.ISAPIService;
-import com.oldwei.isup.service.IDeviceService;
+import com.oldwei.isup.service.DeviceCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +17,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class FDController {
     private final ISAPIService isapiService;
-    private final IDeviceService deviceService;
+    private final DeviceCacheService deviceCacheService;
 
     /**
      * 云台控制接口
@@ -40,8 +39,7 @@ public class FDController {
             @RequestParam String deviceId,
             @RequestParam String xmlUrl
     ) {
-        Optional<Device> oneOpt = deviceService.getOneOpt(new LambdaQueryWrapper<Device>()
-                .eq(Device::getDeviceId, deviceId));
+        Optional<Device> oneOpt = deviceCacheService.getByDeviceId(deviceId);
         if (oneOpt.isPresent()) {
             Device device = oneOpt.get();
             Integer loginId = device.getLoginId();

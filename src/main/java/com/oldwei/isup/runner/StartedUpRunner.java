@@ -1,10 +1,6 @@
 package com.oldwei.isup.runner;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper;
 import com.oldwei.isup.config.HikIsupProperties;
-import com.oldwei.isup.mapper.DeviceMapper;
-import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.service.*;
 import com.oldwei.isup.sdk.service.impl.FPREVIEW_NEWLINK_CB_FILE;
 import com.oldwei.isup.sdk.service.impl.FRegisterCallBack;
@@ -26,7 +22,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
     private final IHikISUPStream hikISUPStream;
     private final FRegisterCallBack fRegisterCallBack;
     private final FPREVIEW_NEWLINK_CB_FILE fnNewLinkCB;
-    private final DeviceMapper deviceMapper;
     private final VOICETALK_NEWLINK_CB voiceCallBack;
     private final IHikISUPStorage hikISUPStorage;
     private final IHikISUPAlarm hikISUPAlarm;
@@ -120,23 +115,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
         } else {
             String AlarmListenInfo = new String(net_ehome_alarm_listen_param.struAddress.szIP).trim() + "_" + net_ehome_alarm_listen_param.struAddress.wPort;
             System.out.println("报警服务器：" + AlarmListenInfo + ",NET_EALARM_StartListen succeed");
-        }
-
-        log.info("========================= 重置设备状态 =========================");
-        Long count = deviceMapper.selectCount(new LambdaQueryWrapper<>());
-        if (count > 0) {
-            boolean updated = new LambdaUpdateChainWrapper<>(deviceMapper)
-                    .set(Device::getIsOnline, 0)
-                    .set(Device::getLoginId, -1)
-                    .set(Device::getChannel, -1)
-                    .update();
-            if (updated) {
-                log.info("重置设备状态完成");
-            } else {
-                log.warn("重置设备状态失败");
-                // 退出程序
-                System.exit(1);
-            }
         }
 
         log.info("=========================  流媒体服务(需要预览取流时使用)  =========================");
