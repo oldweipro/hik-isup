@@ -10,7 +10,6 @@ import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_REG_INFO_V12;
 import com.oldwei.isup.sdk.structure.NET_EHOME_DEV_SESSIONKEY;
 import com.oldwei.isup.sdk.structure.NET_EHOME_SERVER_INFO_V50;
 import com.oldwei.isup.service.DeviceCacheService;
-import com.oldwei.isup.service.IMediaStreamService;
 import com.sun.jna.Pointer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +25,6 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
     private final HikIsupProperties hikIsupProperties;
     private final HCISUPCMS hcisupcms;
     private final DeviceCacheService deviceCacheService;
-    private final IMediaStreamService mediaStreamService;
     private final IHikISUPAlarm hikISUPAlarm;
 
     @Override
