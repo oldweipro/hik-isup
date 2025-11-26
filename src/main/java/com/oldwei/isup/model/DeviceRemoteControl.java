@@ -1,4 +1,4 @@
-package com.oldwei.isup.domain;
+package com.oldwei.isup.model;
 
 import lombok.Data;
 

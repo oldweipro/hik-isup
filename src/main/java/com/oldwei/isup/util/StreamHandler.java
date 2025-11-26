@@ -1,4 +1,4 @@
-package com.oldwei.isup.handler;
+package com.oldwei.isup.util;
 
 import com.oldwei.isup.sdk.StreamManager;
 import lombok.extern.slf4j.Slf4j;

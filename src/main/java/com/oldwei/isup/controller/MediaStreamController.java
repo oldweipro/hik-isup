@@ -2,8 +2,8 @@ package com.oldwei.isup.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikStreamProperties;
-import com.oldwei.isup.domain.DeviceRemoteControl;
 import com.oldwei.isup.model.Device;
+import com.oldwei.isup.model.DeviceRemoteControl;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.tts.DataItem;
 import com.oldwei.isup.model.tts.TtsRequest;
@@ -83,7 +83,6 @@ public class MediaStreamController {
             System.out.println("sessionId=" + sessionId);
             mediaStreamService.preview(device);
             PlayURL playURL = new PlayURL();
-//                    playURL.setWsFlv("ws://192.168.2.235:9002/?playKey=" + deviceId);
             playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId());
             playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" + hikStreamProperties.getHttp().getPort() + "/live/" + device.getDeviceId() + ".live.flv");
             return R.ok(playURL);

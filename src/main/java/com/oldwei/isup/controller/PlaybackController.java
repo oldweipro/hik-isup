@@ -2,13 +2,13 @@ package com.oldwei.isup.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.oldwei.isup.config.HikStreamProperties;
-import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.vo.PlayURL;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
+import com.oldwei.isup.util.StreamHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;

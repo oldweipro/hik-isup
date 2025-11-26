@@ -4,7 +4,6 @@ import com.aizuda.zlm4j.core.ZLMApi;
 import com.aizuda.zlm4j.structure.MK_RTP_SERVER;
 import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.config.HikStreamProperties;
-import com.oldwei.isup.handler.StreamHandler;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
@@ -12,6 +11,7 @@ import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.structure.*;
 import com.oldwei.isup.service.IDeviceService;
 import com.oldwei.isup.service.IMediaStreamService;
+import com.oldwei.isup.util.StreamHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -40,7 +40,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final ZLMApi zlmApi;
     // 每个设备一个 latch，用于控制阻塞/停止
     private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
-    
+
     // RTP端口管理：起始端口
     private static final int RTP_PORT_START = 30002;
     private static final int RTP_PORT_END = 30100;
@@ -90,14 +90,14 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 streamHandler.stopProcessing();
                 StreamManager.concurrentMap.remove(sessionId);
             }
-            
+
             // 释放RTP端口
             Integer rtpPort = sessionRtpPortMap.remove(sessionId);
             if (rtpPort != null) {
                 releaseRtpPort(rtpPort);
                 StreamManager.sessionIDAndRtpPortMap.remove(sessionId);
             }
-            
+
             StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
         }
         StreamManager.userIDandSessionMap.remove(loginId);
@@ -119,6 +119,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
     /**
      * 分配一个可用的RTP端口
+     *
      * @return 可用端口号，如果无可用端口返回 -1
      */
     private synchronized int allocateRtpPort() {
@@ -132,9 +133,10 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         log.error("无可用RTP端口，当前范围: {}-{}", RTP_PORT_START, RTP_PORT_END);
         return -1;
     }
-    
+
     /**
      * 释放RTP端口
+     *
      * @param port 要释放的端口号
      */
     private synchronized void releaseRtpPort(int port) {
@@ -184,14 +186,14 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                     log.error("无法分配RTP端口，预览失败");
                     return;
                 }
-                
+
                 MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "live", device.getDeviceId());
                 StreamManager.deviceRTP.put(device.getDeviceId(), mkRtpServer);
-                
+
                 // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
                 StreamManager.sessionIDAndRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
                 sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
-                
+
                 log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", struPushInfoIn.lSessionID, rtpPort);
                 if (StreamManager.concurrentMap.get(struPushInfoIn.lSessionID) == null) {
                     int loginchannelId = device.getLoginId() * 100 + device.getChannel();
