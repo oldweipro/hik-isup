@@ -28,14 +28,15 @@ public class PtzController {
     @PostMapping
     public R<String> control(
             @PathVariable String deviceId,
+            @RequestParam(defaultValue = "1") int channelId,
             @RequestParam(defaultValue = "60") int pan,
             @RequestParam(defaultValue = "0") int tilt,
             @RequestParam(defaultValue = "1000") int duration) {
-        
-        log.debug("云台控制 - deviceId: {}, pan: {}, tilt: {}, duration: {}", 
+
+        log.debug("云台控制 - deviceId: {}, pan: {}, tilt: {}, duration: {}",
                 deviceId, pan, tilt, duration);
-        
-        isapiService.controlPtz(deviceId, pan, tilt, duration);
+
+        isapiService.controlPtz(deviceId, channelId, pan, tilt, duration);
         return R.ok("云台控制指令已发送");
     }
 }

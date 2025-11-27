@@ -86,13 +86,12 @@ public class ISAPIService {
      * @param tiltSpeed  垂直速度（-100~100，正为上，负为下）
      * @param durationMs 持续时间（毫秒）
      */
-    public void controlPtz(String deviceId, int panSpeed, int tiltSpeed, int durationMs) {
+    public void controlPtz(String deviceId, Integer channelId, int panSpeed, int tiltSpeed, int durationMs) {
         Optional<Device> oneOpt = deviceCacheService.getByDeviceId(deviceId);
         if (oneOpt.isPresent()) {
             Device device = oneOpt.get();
             int userId = device.getLoginId();
-            int channel = device.getChannel();
-            String url = "PUT /ISAPI/PTZCtrl/channels/" + channel + "/continuous";
+            String url = "PUT /ISAPI/PTZCtrl/channels/" + channelId + "/continuous";
             String startXml = String.format("""
                     <?xml version="1.0" encoding="UTF-8"?>
                     <PTZData>
@@ -104,7 +103,7 @@ public class ISAPIService {
             try {
                 // 启动云台移动
                 cmsUtil.passThrough(userId, url, startXml);
-                log.info("开始云台移动: userId={}, channel={}, pan={}, tilt={}", userId, channel, panSpeed, tiltSpeed);
+                log.info("开始云台移动: userId={}, channel={}, pan={}, tilt={}", userId, channelId, panSpeed, tiltSpeed);
 
                 // 等待指定时间后停止
                 Thread.sleep(durationMs);
@@ -117,12 +116,12 @@ public class ISAPIService {
                         </PTZData>
                         """;
                 cmsUtil.passThrough(userId, url, stopXml);
-                log.info("停止云台移动: userId={}, channel={}", userId, channel);
+                log.info("停止云台移动: userId={}, channel={}", userId, channelId);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.error("云台控制线程被中断", e);
             } catch (Exception e) {
-                log.error("云台控制异常: userId={}, channel={}, 错误={}", userId, channel, e.getMessage(), e);
+                log.error("云台控制异常: userId={}, channel={}, 错误={}", userId, channelId, e.getMessage(), e);
                 throw new RuntimeException("云台控制失败：" + e.getMessage(), e);
             }
         }

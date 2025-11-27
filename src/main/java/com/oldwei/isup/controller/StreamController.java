@@ -32,24 +32,48 @@ public class StreamController {
      * 开始实时预览
      */
     @PostMapping("/preview")
-    public R<PlayURL> startPreview(@PathVariable String deviceId) {
+    public R<PlayURL> startPreview(
+            @PathVariable String deviceId,
+            @RequestParam(required = false, defaultValue = "1") Integer channelId) {
         Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         if (deviceOpt.isEmpty()) {
             return R.fail("设备不存在，无法预览");
         }
         
         Device device = deviceOpt.get();
-        Integer sessionId = StreamManager.userIDandSessionMap.get(
-                device.getLoginId() * 100 + device.getChannel());
-        log.debug("开始预览 - deviceId: {}, sessionId: {}", deviceId, sessionId);
+        // 查找指定的通道
+        Device.Channel channel = device.getChannels().stream()
+                .filter(ch -> ch.getChannelId().equals(channelId))
+                .findFirst()
+                .orElse(null);
         
-        mediaStreamService.preview(device);
+        if (channel == null) {
+            return R.fail("通道不存在: " + channelId);
+        }
+        
+        String streamKey = deviceId + "_" + channelId;
+        Integer sessionId = StreamManager.userIDandSessionMap.get(
+                device.getLoginId() * 100 + channelId);
+        log.debug("开始预览 - deviceId: {}, channelId: {}, sessionId: {}", deviceId, channelId, sessionId);
+        
+        // 防重复：如果该通道已有RTP服务，直接返回播放地址
+        if (StreamManager.deviceRTP.containsKey(streamKey)) {
+            log.info("通道已在预览中，忽略重复开启: {}", streamKey);
+            PlayURL playURL = new PlayURL();
+            playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" 
+                    + hikStreamProperties.getRtmp().getPort() + "/live/" + streamKey);
+            playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" 
+                    + hikStreamProperties.getHttp().getPort() + "/live/" + streamKey + ".live.flv");
+            return R.ok(playURL);
+        }
+        
+        mediaStreamService.preview(device, channelId);
         
         PlayURL playURL = new PlayURL();
         playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" 
-                + hikStreamProperties.getRtmp().getPort() + "/live/" + device.getDeviceId());
+                + hikStreamProperties.getRtmp().getPort() + "/live/" + streamKey);
         playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" 
-                + hikStreamProperties.getHttp().getPort() + "/live/" + device.getDeviceId() + ".live.flv");
+                + hikStreamProperties.getHttp().getPort() + "/live/" + streamKey + ".live.flv");
         
         return R.ok(playURL);
     }
@@ -58,11 +82,13 @@ public class StreamController {
      * 停止实时预览
      */
     @DeleteMapping("/preview")
-    public R<Boolean> stopPreview(@PathVariable String deviceId) {
+    public R<Boolean> stopPreview(
+            @PathVariable String deviceId,
+            @RequestParam(required = false, defaultValue = "1") Integer channelId) {
         Optional<Device> deviceOpt = deviceCacheService.getByDeviceId(deviceId);
         deviceOpt.ifPresent(device -> {
-            log.debug("停止预览 - deviceId: {}", deviceId);
-            mediaStreamService.stopPreview(device);
+            log.debug("停止预览 - deviceId: {}, channelId: {}", deviceId, channelId);
+            mediaStreamService.stopPreview(device, channelId);
         });
         return R.ok(true);
     }
@@ -73,6 +99,7 @@ public class StreamController {
     @PostMapping("/playback")
     public R<PlayURL> startPlayback(
             @PathVariable String deviceId,
+            @RequestParam(required = false, defaultValue = "1") Integer channelId,
             @RequestParam String startTime,
             @RequestParam String endTime) {
         
@@ -102,14 +129,16 @@ public class StreamController {
         Integer loginId = device.getLoginId();
         Integer sessionId = StreamManager.playbackUserIDandSessionMap.get(loginId);
         
-        log.info("开始回放 - deviceId: {}, startTime: {}, endTime: {}", deviceId, startTime, endTime);
-        mediaStreamService.playbackByTime(deviceId, loginId, device.getChannel(), startTime, endTime);
+        String streamKey = deviceId + "_" + channelId;
+        log.info("开始回放 - deviceId: {}, channelId: {}, startTime: {}, endTime: {}", 
+                 deviceId, channelId, startTime, endTime);
+        mediaStreamService.playbackByTime(streamKey, loginId, channelId, startTime, endTime);
         
         PlayURL playURL = new PlayURL();
         playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":" 
-                + hikStreamProperties.getRtmp().getPort() + "/playback/" + deviceId);
+                + hikStreamProperties.getRtmp().getPort() + "/playback/" + streamKey);
         playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":" 
-                + hikStreamProperties.getHttp().getPort() + "/playback/" + deviceId + ".live.flv");
+                + hikStreamProperties.getHttp().getPort() + "/playback/" + streamKey + ".live.flv");
         
         return R.ok(playURL);
     }

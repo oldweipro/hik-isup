@@ -104,36 +104,49 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 pInBuffer.write(0, strEhomeServerInfo.getPointer().getByteArray(0, dwInLen), 0, dwInLen);
 
 //                log.info("服务器信息: {}", strEhomeServerInfo);
-                // FIXME demo逻辑中默认只支持一台设备的功能演示，多台设备需要自行调整这里设备登录后的句柄信息
+                // 设备上线，先注册 loginId -> deviceId 映射，再保证内存中有一条设备记录
                 String deviceId = new String(strDevRegInfo.struRegInfo.byDeviceID).trim();
-                log.info("Device online, DeviceID is: {}", deviceId);
-                Optional<Device> oneOpt = deviceCacheService.getByDeviceId(deviceId);
-                Device device = oneOpt.orElseGet(Device::new);
-                device.setDeviceId(deviceId);
-                device.setLoginId(lUserID);
-                device.setIsOnline(1);
-                log.info("{}", device);
-                deviceCacheService.saveOrUpdate(device);
-                log.info("设备{}上线，登录句柄{}", deviceId, lUserID);
+                log.info("设备上线, DeviceID: {}, LoginID: {}", deviceId, lUserID);
+                // 注册登录句柄映射
+                deviceCacheService.registerLoginId(lUserID, deviceId);
+
+                // 如果缓存中还没有该设备，则创建一条基础设备记录，供 /api/devices 等接口查询
+                Optional<Device> existing = deviceCacheService.getByDeviceId(deviceId);
+                if (existing.isEmpty()) {
+                    Device device = new Device();
+                    device.setDeviceId(deviceId);
+                    device.setIsOnline(1);
+                    device.setLoginId(lUserID);
+                    // 通道列表由定时任务后续刷新，这里先保留默认空列表
+                    deviceCacheService.saveOrUpdate(device);
+                    log.info("设备首次注册，已创建基础缓存记录: deviceId={}, loginId={}", deviceId, lUserID);
+                } else {
+                    // 已存在设备，直接标记为在线并更新登录句柄
+                    Device device = existing.get();
+                    device.setIsOnline(1);
+                    device.setLoginId(lUserID);
+                    deviceCacheService.saveOrUpdate(device);
+                    log.info("设备再次上线，已更新缓存记录: deviceId={}, loginId={}", deviceId, lUserID);
+                }
                 return true;
             case EHOME_REGISTER_TYPE.ENUM_DEV_OFF:
                 log.info("设备下线回调 Device off, lUserID is: {}", lUserID);
-                List<Device> deviceList = deviceCacheService.getByLoginId(lUserID);
-                if (deviceList.isEmpty()) {
+                Optional<Device> deviceOpt = deviceCacheService.getByLoginId(lUserID);
+                if (deviceOpt.isEmpty()) {
                     log.warn("未找到登录句柄{}对应的设备", lUserID);
                 } else {
-                    log.info("找到登录句柄{}对应的设备数量: {}", lUserID, deviceList.size());
-                    deviceList.forEach(device1 -> {
-                        // TODO 停止该设备的所有预览流
-//                        if (device1.getIsPush() > 0) {
-//                            mediaStreamService.stopPreview(device1);
-//                        }
-                        device1.setIsOnline(0);
-                        device1.setLoginId(-1);
-                        device1.setChannel(-1);
-                        deviceCacheService.saveOrUpdate(device1);
-                        log.info("设备{}下线，清除登录句柄{}", device1.getDeviceId(), lUserID);
-                    });
+                    Device device = deviceOpt.get();
+                    log.info("设备{}下线，影响{}个通道", device.getDeviceId(), device.getChannels().size());
+                    
+                    // TODO 停止该设备的所有预览流
+                    
+                    // 设备及所有通道离线
+                    device.setIsOnline(0);
+                    device.setLoginId(-1);
+                    device.getChannels().forEach(ch -> ch.setIsOnline(0));
+                    deviceCacheService.saveOrUpdate(device);
+                    
+                    log.info("设备{}已离线", device.getDeviceId());
                 }
                 break;
             case EHOME_REGISTER_TYPE.ENUM_DEV_AUTH:

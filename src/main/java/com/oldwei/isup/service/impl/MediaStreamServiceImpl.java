@@ -48,33 +48,52 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
     @Override
     @Async("streamExecutor")
-    public void preview(Device device) {
+    public void preview(Device device, Integer channelId) {
+        if (channelId == null) return;
+        // 防重复：如果该设备已在预览或已有RTP服务，直接返回
+        String streamKey = device.getDeviceId() + "_" + channelId;
+        if (latchMap.containsKey(streamKey) || StreamManager.deviceRTP.containsKey(streamKey)) {
+            log.info("通道已在预览中，忽略重复开启: {}", streamKey);
+            return;
+        }
         CountDownLatch latch = new CountDownLatch(1);
-        latchMap.put(device.getDeviceId(), latch);
+        latchMap.put(streamKey, latch);
         try {
             // 创建异步控制器
-            RealPlay(device);
+            RealPlay(device, channelId);
             // 阻塞，直到 stopPreview() 调用 latch.countDown()
             latch.await();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
-            latchMap.remove(device.getDeviceId());
+            latchMap.remove(streamKey);
         }
     }
 
-    public void stopPreview(Device device) {
+    public void stopPreview(Device device, Integer channelId) {
         Integer loginId = device.getLoginId();
-        Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + device.getChannel());
+        Integer channel = channelId != null ? channelId : device.getChannel();
+        if (channel == null) {
+            log.error("通道号不能为空，无法停止预览");
+            return;
+        }
+        String streamKey = device.getDeviceId() + "_" + channel;
+        Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + channel);
+        if (sessionId == null) {
+            log.error("无效的会话ID，无法停止预览");
+            return;
+        }
         Integer previewHandleId = StreamManager.sessionIDAndPreviewHandleMap.get(sessionId);
+        if (previewHandleId == null) {
+            log.error("无效的预览句柄，无法停止预览");
+            return;
+        }
         // 确保资源被正确清理
         log.info("停止预览：PreviewHandle: {}", previewHandleId);
-        if (previewHandleId != null) {
-            if (!hikISUPStream.NET_ESTREAM_StopPreview(previewHandleId)) {
-                log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
-            }
-            StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
+        if (!hikISUPStream.NET_ESTREAM_StopPreview(previewHandleId)) {
+            log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
         }
+        StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
         //停止预览,Stream服务停止实时流转发，CMS向设备发送停止预览请求
         log.info("停止获取实时流");
         if (sessionId != null) {
@@ -90,19 +109,22 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
             StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
         }
-        StreamManager.userIDandSessionMap.remove(loginId);
+        StreamManager.userIDandSessionMap.remove(loginId * 100 + channel);
         if (!StreamManager.previewHandSAndSessionIDandMap.containsKey(previewHandleId)
-                && !StreamManager.userIDandSessionMap.containsKey(loginId)
+                && !StreamManager.userIDandSessionMap.containsKey(loginId * 100 + channel)
                 && !StreamManager.sessionIDAndPreviewHandleMap.containsKey(sessionId)) {
             log.info("会话: {} 相关资源已被清空", sessionId);
         }
-        MK_RTP_SERVER mkRtpServer = StreamManager.deviceRTP.get(device.getDeviceId());
-        zlmApi.mk_rtp_server_release(mkRtpServer);
+        MK_RTP_SERVER mkRtpServer = StreamManager.deviceRTP.get(streamKey);
+        if (mkRtpServer != null) {
+            zlmApi.mk_rtp_server_release(mkRtpServer);
+            StreamManager.deviceRTP.remove(streamKey);
+        }
         log.info("CMS已发送停止预览请求");
-        CountDownLatch latch = latchMap.get(device.getDeviceId());
+        CountDownLatch latch = latchMap.get(streamKey);
         if (latch != null) {
             latch.countDown(); // 唤醒 preview
-            log.info("结束预览实例: {}", device.getDeviceId());
+            log.info("结束预览实例: {}", streamKey);
         }
     }
 
@@ -139,9 +161,9 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
      *
      * @return sessionID 会话id
      */
-    public void RealPlay(Device device) {
+    public void RealPlay(Device device, Integer channelId) {
         NET_EHOME_PREVIEWINFO_IN_V11 struPreviewInV11 = new NET_EHOME_PREVIEWINFO_IN_V11();
-        struPreviewInV11.iChannel = device.getChannel(); //通道号
+        struPreviewInV11.iChannel = channelId; //通道号
         struPreviewInV11.dwLinkMode = 0; //0- TCP方式，1- UDP方式
         struPreviewInV11.dwStreamType = 0; //码流类型：0- 主码流，1- 子码流, 2- 第三码流
         log.info("ip: {}, port: {}", hikIsupProperties.getSmsServer().getIp(), hikIsupProperties.getSmsServer().getPort());
@@ -157,6 +179,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         } else {
             struPreviewOut.read();
             log.info("NET_ECMS_StartGetRealStream succeed, sessionID: {}", struPreviewOut.lSessionID);
+            StreamManager.userIDandSessionMap.put(device.getLoginId() * 100 + channelId, struPreviewOut.lSessionID);
             NET_EHOME_PUSHSTREAM_IN struPushInfoIn = new NET_EHOME_PUSHSTREAM_IN();
             struPushInfoIn.read();
             struPushInfoIn.dwSize = struPushInfoIn.size();
@@ -176,8 +199,8 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                     return;
                 }
 
-                MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "live", device.getDeviceId());
-                StreamManager.deviceRTP.put(device.getDeviceId(), mkRtpServer);
+                MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "live", device.getDeviceId() + "_" + channelId);
+                StreamManager.deviceRTP.put(device.getDeviceId() + "_" + channelId, mkRtpServer);
 
                 // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
                 StreamManager.sessionIDAndRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
@@ -189,7 +212,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     }
 
     @Override
-    public void playbackByTime(String deviceId, Integer loginId, Integer channelId, String startTime, String endTime) {
+    public void playbackByTime(String streamKey, Integer loginId, Integer channelId, String startTime, String endTime) {
         NET_EHOME_PLAYBACK_INFO_IN m_struPlayBackInfoIn = new NET_EHOME_PLAYBACK_INFO_IN();
         m_struPlayBackInfoIn.read();
         m_struPlayBackInfoIn.dwSize = m_struPlayBackInfoIn.size();
@@ -264,8 +287,8 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 log.error("无法分配RTP端口，预览失败");
                 return;
             }
-            MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "playback", deviceId);
-            StreamManager.deviceRTPPlayback.put(deviceId, mkRtpServer);
+            MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "playback", streamKey);
+            StreamManager.deviceRTPPlayback.put(streamKey, mkRtpServer);
         }
     }
 

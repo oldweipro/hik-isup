@@ -13,11 +13,11 @@ hik:
       ip: 192.168.2.235
       #      服务器本地地址
       listenIp: 192.168.2.235
-      port: 1935
+      port: 7935
     http:
       #      公网对接填入公网地址
       ip: 192.168.2.235
-      port: 8080
+      port: 7788
   isup:
     # last update
     # Fri Aug 06 11:51:16 CST 2021
