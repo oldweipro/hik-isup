@@ -161,9 +161,6 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
         struPlayBackListen.byLinkMode = 0; //0- TCP方式，1- UDP方式
 
         int m_lPlayBackListenHandle = hikISUPStream.NET_ESTREAM_StartListenPlayBack(struPlayBackListen);
-        //TODO 如果m_lPlayBackListenHandle大于等于0需要销毁
-//        System.out.println("停止回放流媒体Stream服务");
-//        StreamDemo.hCEhomeStream.NET_ESTREAM_StopListenPlayBack(StreamDemo.m_lPlayBackListenHandle);
         if (m_lPlayBackListenHandle < -1) {
             System.out.println("NET_ESTREAM_StartListenPlayBack failed, error code:" + hikISUPStream.NET_ESTREAM_GetLastError());
             hikISUPStream.NET_ESTREAM_Fini();

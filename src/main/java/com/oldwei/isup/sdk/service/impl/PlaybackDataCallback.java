@@ -13,13 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
 
-    int iCount = 0;
-
     // 存储每个预览句柄对应的连接信息
     private static class RtpConnection {
         java.net.Socket rtpSocket;
         java.io.OutputStream rtpOutputStream;
-        int count = 0;
         int seqNum = 0;
         int timestamp = 0;
     }
@@ -30,7 +27,10 @@ public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
     //实时流回调函数
     public boolean invoke(int iPlayBackLinkHandle, NET_EHOME_PLAYBACK_DATA_CB_INFO pDataCBInfo, Pointer pUserData) {
         Integer sessionID = StreamManager.playbackPreviewHandSAndSessionIDandMap.get(iPlayBackLinkHandle);
-
+        if (sessionID == null) {
+            log.error("未找到预览句柄 {} 对应的 sessionID", iPlayBackLinkHandle);
+            return false;
+        }
         // 通过 sessionID 获取对应的 RTP 端口
         Integer rtpPort = StreamManager.playbackSessionIDAndRtpPortMap.get(sessionID);
         if (rtpPort == null) {
@@ -59,15 +59,9 @@ public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
         }
 
         byte[] dataStream = pDataCBInfo.pData.getByteArray(0, pDataCBInfo.dwDataLen);
-        connection.count++;
 
 
         if (dataStream != null && dataStream.length > 0) {
-            if (connection.count > 100) {
-                log.info("预览数据回调：预览句柄={}, 数据长度={}", iPlayBackLinkHandle, dataStream.length);
-                connection.count = 0;
-            }
-
             if (pDataCBInfo.dwType == 2) {
                 int dwBufSize = pDataCBInfo.dwDataLen;
                 Pointer pBuffer = pDataCBInfo.pData;

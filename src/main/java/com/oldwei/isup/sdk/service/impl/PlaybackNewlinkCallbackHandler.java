@@ -25,9 +25,13 @@ public class PlaybackNewlinkCallbackHandler implements PLAYBACK_NEWLINK_CB {
 
     public boolean invoke(int lPlayBackLinkHandle, NET_EHOME_PLAYBACK_NEWLINK_CB_INFO pNewLinkCBInfo, Pointer pUserData) {
         pNewLinkCBInfo.read();
-        log.info("PLAYBACK_NEWLINK_CB callback, szDeviceID: {},lSessionID: {},dwChannelNo: {}", new String(pNewLinkCBInfo.szDeviceID).trim(), pNewLinkCBInfo.lSessionID, pNewLinkCBInfo.dwChannelNo);
-        StreamManager.playbackPreviewHandSAndSessionIDandMap.put(lPlayBackLinkHandle, pNewLinkCBInfo.lSessionID);
-        StreamManager.playbackSessionIDAndPreviewHandleMap.put(pNewLinkCBInfo.lSessionID, lPlayBackLinkHandle);
+        int lSessionID = pNewLinkCBInfo.lSessionID;
+        log.info("PLAYBACK_NEWLINK_CB callback, szDeviceID: {},lSessionID: {},dwChannelNo: {}",
+                new String(pNewLinkCBInfo.szDeviceID).trim(),
+                lSessionID,
+                pNewLinkCBInfo.dwChannelNo);
+        StreamManager.playbackPreviewHandSAndSessionIDandMap.put(lPlayBackLinkHandle, lSessionID);
+        StreamManager.playbackSessionIDAndPreviewHandleMap.put(lSessionID, lPlayBackLinkHandle);
 
         // 为每个预览会话创建独立的回调处理器实例
         PlaybackDataCallback playbackDataCallback = handlerMap.computeIfAbsent(lPlayBackLinkHandle, handle -> {
@@ -42,6 +46,7 @@ public class PlaybackNewlinkCallbackHandler implements PLAYBACK_NEWLINK_CB {
         struCBParam.write();
         if (!hikISUPStream.NET_ESTREAM_SetPlayBackDataCB(lPlayBackLinkHandle, struCBParam)) {
             System.out.println("NET_ESTREAM_SetPlayBackDataCB failed");
+            return false;
         }
         return true;
     }

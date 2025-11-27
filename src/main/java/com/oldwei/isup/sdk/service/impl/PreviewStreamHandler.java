@@ -20,7 +20,6 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
     private static class RtpConnection {
         java.net.Socket rtpSocket;
         java.io.OutputStream rtpOutputStream;
-        int count = 0;
         int seqNum = 0;
         int timestamp = 0;
     }
@@ -65,13 +64,7 @@ public class PreviewStreamHandler implements PREVIEW_DATA_CB {
         }
 
         byte[] dataStream = pPreviewCBMsg.pRecvdata.getByteArray(0, pPreviewCBMsg.dwDataLen);
-        connection.count++;
         if (dataStream != null && dataStream.length > 0) {
-            if (connection.count > 100) {
-                log.info("预览数据回调：预览句柄={}, 数据长度={}", iPreviewHandle, dataStream.length);
-                connection.count = 0;
-            }
-
             if (pPreviewCBMsg.byDataType == 2) {
                 int dwBufSize = pPreviewCBMsg.dwDataLen;
                 Pointer pBuffer = pPreviewCBMsg.pRecvdata;

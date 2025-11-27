@@ -2,6 +2,7 @@ package com.oldwei.isup.sdk.service.impl;
 
 import com.oldwei.isup.config.HikIsupProperties;
 import com.oldwei.isup.model.Device;
+import com.oldwei.isup.sdk.isapi.ISAPIService;
 import com.oldwei.isup.sdk.service.DEVICE_REGISTER_CB;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
 import com.oldwei.isup.sdk.service.IHikISUPAlarm;
@@ -15,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -26,6 +26,8 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
     private final HCISUPCMS hcisupcms;
     private final DeviceCacheService deviceCacheService;
     private final IHikISUPAlarm hikISUPAlarm;
+    private final ISAPIService isapiService;
+    private final CmsUtil cmsUtil;
 
     @Override
     public boolean invoke(int lUserID, int dwDataType, Pointer pOutBuffer, int dwOutLen, Pointer pInBuffer, int dwInLen, Pointer pUser) {
@@ -33,7 +35,7 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
         NET_EHOME_DEV_REG_INFO_V12 strDevRegInfo = new NET_EHOME_DEV_REG_INFO_V12();
         Pointer pDevRegInfo = strDevRegInfo.getPointer();
         switch (dwDataType) {
-            case EHOME_REGISTER_TYPE.ENUM_DEV_ON:
+            case EHOME_REGISTER_TYPE.ENUM_DEV_ON: // 0
                 // 设备上线回调
                 strDevRegInfo.write();
                 pDevRegInfo.write(0, pOutBuffer.getByteArray(0, strDevRegInfo.size()), 0, strDevRegInfo.size());
@@ -103,53 +105,33 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 dwInLen = strEhomeServerInfo.size();
                 pInBuffer.write(0, strEhomeServerInfo.getPointer().getByteArray(0, dwInLen), 0, dwInLen);
 
-//                log.info("服务器信息: {}", strEhomeServerInfo);
-                // 设备上线，先注册 loginId -> deviceId 映射，再保证内存中有一条设备记录
                 String deviceId = new String(strDevRegInfo.struRegInfo.byDeviceID).trim();
                 log.info("设备上线, DeviceID: {}, LoginID: {}", deviceId, lUserID);
                 // 注册登录句柄映射
                 deviceCacheService.registerLoginId(lUserID, deviceId);
-
-                // 如果缓存中还没有该设备，则创建一条基础设备记录，供 /api/devices 等接口查询
-                Optional<Device> existing = deviceCacheService.getByDeviceId(deviceId);
-                if (existing.isEmpty()) {
-                    Device device = new Device();
-                    device.setDeviceId(deviceId);
-                    device.setIsOnline(1);
-                    device.setLoginId(lUserID);
-                    // 通道列表由定时任务后续刷新，这里先保留默认空列表
-                    deviceCacheService.saveOrUpdate(device);
-                    log.info("设备首次注册，已创建基础缓存记录: deviceId={}, loginId={}", deviceId, lUserID);
-                } else {
-                    // 已存在设备，直接标记为在线并更新登录句柄
-                    Device device = existing.get();
-                    device.setIsOnline(1);
-                    device.setLoginId(lUserID);
-                    deviceCacheService.saveOrUpdate(device);
-                    log.info("设备再次上线，已更新缓存记录: deviceId={}, loginId={}", deviceId, lUserID);
-                }
-                return true;
-            case EHOME_REGISTER_TYPE.ENUM_DEV_OFF:
+                // 获取或创建设备对象
+                Device device = deviceCacheService.getByDeviceId(deviceId).orElse(new Device());
+                device.setDeviceId(deviceId);
+//                device.setDeviceType(deviceType);
+                device.setIsOnline(1);
+                device.setLoginId(lUserID);
+                // 更新通道列表
+//                updateDeviceChannels(device, onlineChannelIds);
+                deviceCacheService.saveOrUpdate(device);
+                break;
+            case EHOME_REGISTER_TYPE.ENUM_DEV_OFF:// TODO 1
                 log.info("设备下线回调 Device off, lUserID is: {}", lUserID);
                 Optional<Device> deviceOpt = deviceCacheService.getByLoginId(lUserID);
                 if (deviceOpt.isEmpty()) {
                     log.warn("未找到登录句柄{}对应的设备", lUserID);
                 } else {
-                    Device device = deviceOpt.get();
-                    log.info("设备{}下线，影响{}个通道", device.getDeviceId(), device.getChannels().size());
-                    
-                    // TODO 停止该设备的所有预览流
-                    
-                    // 设备及所有通道离线
-                    device.setIsOnline(0);
-                    device.setLoginId(-1);
-                    device.getChannels().forEach(ch -> ch.setIsOnline(0));
-                    deviceCacheService.saveOrUpdate(device);
-                    
-                    log.info("设备{}已离线", device.getDeviceId());
+                    Device deviceOffline = deviceOpt.get();
+                    deviceCacheService.removeByLoginId(lUserID);
+                    log.info("设备{}下线，影响{}个通道", deviceOffline.getDeviceId(), deviceOffline.getChannels().size());
+                    // TODO 如果设备正在预览，停止该设备的所有预览流
                 }
                 break;
-            case EHOME_REGISTER_TYPE.ENUM_DEV_AUTH:
+            case EHOME_REGISTER_TYPE.ENUM_DEV_AUTH:// 3
                 // Ehome5.0设备认证回调
                 strDevRegInfo.write();
                 pDevRegInfo.write(0, pOutBuffer.getByteArray(0, strDevRegInfo.size()), 0, strDevRegInfo.size());
@@ -159,7 +141,7 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 pInBuffer.write(0, bs, 0, szEHomeKey.length());
                 log.info("Ehome5.0设备认证回调 Device auth, DeviceID is: {}", new String(strDevRegInfo.struRegInfo.byDeviceID).trim());
                 break;
-            case EHOME_REGISTER_TYPE.ENUM_DEV_SESSIONKEY:
+            case EHOME_REGISTER_TYPE.ENUM_DEV_SESSIONKEY:// 4
                 // Ehome5.0设备Sessionkey回调
                 strDevRegInfo.write();
                 pDevRegInfo.write(0, pOutBuffer.getByteArray(0, strDevRegInfo.size()), 0, strDevRegInfo.size());
@@ -173,7 +155,7 @@ public class FRegisterCallBack implements DEVICE_REGISTER_CB {
                 log.info("Ehome5.0设备Sessionkey回调 Device session key, DeviceID is: {}", new String(strDevRegInfo.struRegInfo.byDeviceID).trim());
                 hikISUPAlarm.NET_EALARM_SetDeviceSessionKey(pSessionKey);
                 break;
-            case EHOME_REGISTER_TYPE.ENUM_DEV_DAS_REQ: //HCISUPCMS.ENUM_DEV_DAS_REQ
+            case EHOME_REGISTER_TYPE.ENUM_DEV_DAS_REQ: // 5 HCISUPCMS.ENUM_DEV_DAS_REQ
                 String dasInfo = "{\n" +
                         "    \"Type\":\"DAS\",\n" +
                         "    \"DasInfo\": {\n" +

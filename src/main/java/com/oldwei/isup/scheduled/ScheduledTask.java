@@ -1,6 +1,5 @@
 package com.oldwei.isup.scheduled;
 
-import com.oldwei.isup.config.HikPlatformProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.xml.DeviceInfo;
 import com.oldwei.isup.model.xml.InputProxyChannelStatusList;
@@ -8,7 +7,6 @@ import com.oldwei.isup.model.xml.PpvspMessage;
 import com.oldwei.isup.sdk.isapi.ISAPIService;
 import com.oldwei.isup.sdk.service.impl.CmsUtil;
 import com.oldwei.isup.service.DeviceCacheService;
-import com.oldwei.isup.service.IMediaStreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,8 +26,6 @@ public class ScheduledTask {
     private final CmsUtil cmsUtil;
     private final DeviceCacheService deviceCacheService;
     private final ISAPIService isapiService;
-    private final IMediaStreamService mediaStreamService;
-    private final HikPlatformProperties hikPlatformProperties;
 
     // Cron表达式范例：
     //
@@ -65,8 +61,6 @@ public class ScheduledTask {
             log.debug("没有在线的设备需要同步");
             return;
         }
-
-        log.info("开始同步设备信息，共{}台设备", loginIdMap.size());
         loginIdMap.forEach(this::syncDeviceChannels);
     }
 
@@ -119,8 +113,6 @@ public class ScheduledTask {
 
             // 保存设备
             deviceCacheService.saveOrUpdate(device);
-            log.info("设备{}同步完成，类型: {}, 通道数: {}", deviceId, deviceType, device.getChannels().size());
-
         } catch (Exception e) {
             log.error("同步设备通道失败，设备ID: {}, 登录句柄: {}", deviceId, lLoginID, e);
         }

@@ -3,13 +3,11 @@ package com.oldwei.isup.service.impl;
 import com.aizuda.zlm4j.core.ZLMApi;
 import com.aizuda.zlm4j.structure.MK_RTP_SERVER;
 import com.oldwei.isup.config.HikIsupProperties;
-import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
 import com.oldwei.isup.sdk.service.IHikISUPStream;
 import com.oldwei.isup.sdk.structure.*;
-import com.oldwei.isup.service.DeviceCacheService;
 import com.oldwei.isup.service.IMediaStreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,19 +30,16 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final HikIsupProperties hikIsupProperties;
     private final IHikISUPStream hikISUPStream;
     private final HCISUPCMS hcisupcms;
-    private final DeviceCacheService deviceCacheService;
-    private final HikStreamProperties hikStreamProperties;
     private final ZLMApi zlmApi;
     // 每个设备一个 latch，用于控制阻塞/停止
     private final Map<String, CountDownLatch> latchMap = new ConcurrentHashMap<>();
+    private final Map<String, CountDownLatch> playbackLatchMap = new ConcurrentHashMap<>();
 
     // RTP端口管理：起始端口
     private static final int RTP_PORT_START = 30002;
     private static final int RTP_PORT_END = 30100;
     // 存储已分配的端口
     private final Map<Integer, Boolean> allocatedPorts = new ConcurrentHashMap<>();
-    // 存储 sessionID 对应的 RTP 端口
-    private final Map<Integer, Integer> sessionRtpPortMap = new ConcurrentHashMap<>();
 
     @Override
     @Async("streamExecutor")
@@ -72,13 +67,12 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
     public void stopPreview(Device device, Integer channelId) {
         Integer loginId = device.getLoginId();
-        Integer channel = channelId != null ? channelId : device.getChannel();
-        if (channel == null) {
+        if (channelId == null) {
             log.error("通道号不能为空，无法停止预览");
             return;
         }
-        String streamKey = device.getDeviceId() + "_" + channel;
-        Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + channel);
+        String streamKey = device.getDeviceId() + "_" + channelId;
+        Integer sessionId = StreamManager.userIDandSessionMap.get(device.getLoginId() * 100 + channelId);
         if (sessionId == null) {
             log.error("无效的会话ID，无法停止预览");
             return;
@@ -88,30 +82,25 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             log.error("无效的预览句柄，无法停止预览");
             return;
         }
-        // 确保资源被正确清理
-        log.info("停止预览：PreviewHandle: {}", previewHandleId);
         if (!hikISUPStream.NET_ESTREAM_StopPreview(previewHandleId)) {
             log.error("NET_ESTREAM_StopPreview failed,err = {}", hikISUPStream.NET_ESTREAM_GetLastError());
+            return;
         }
-        StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
-        //停止预览,Stream服务停止实时流转发，CMS向设备发送停止预览请求
-        log.info("停止获取实时流");
-        if (sessionId != null) {
-            if (!hcisupcms.NET_ECMS_StopGetRealStream(loginId, sessionId)) {
-                log.error("NET_ECMS_StopGetRealStream failed,err = {}", hcisupcms.NET_ECMS_GetLastError());
-            }
-            // 释放RTP端口
-            Integer rtpPort = sessionRtpPortMap.remove(sessionId);
-            if (rtpPort != null) {
-                releaseRtpPort(rtpPort);
-                StreamManager.sessionIDAndRtpPortMap.remove(sessionId);
-            }
+        if (!hcisupcms.NET_ECMS_StopGetRealStream(loginId, sessionId)) {
+            log.error("NET_ECMS_StopGetRealStream failed,err = {}", hcisupcms.NET_ECMS_GetLastError());
+            return;
+        }
+        // 释放RTP端口
+        Integer rtpPort = StreamManager.sessionIDAndRtpPortMap.remove(sessionId);
+        if (rtpPort != null) {
+            releaseRtpPort(rtpPort);
+        }
 
-            StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
-        }
-        StreamManager.userIDandSessionMap.remove(loginId * 100 + channel);
+        StreamManager.previewHandSAndSessionIDandMap.remove(previewHandleId);
+        StreamManager.sessionIDAndPreviewHandleMap.remove(sessionId);
+        StreamManager.userIDandSessionMap.remove(loginId * 100 + channelId);
         if (!StreamManager.previewHandSAndSessionIDandMap.containsKey(previewHandleId)
-                && !StreamManager.userIDandSessionMap.containsKey(loginId * 100 + channel)
+                && !StreamManager.userIDandSessionMap.containsKey(loginId * 100 + channelId)
                 && !StreamManager.sessionIDAndPreviewHandleMap.containsKey(sessionId)) {
             log.info("会话: {} 相关资源已被清空", sessionId);
         }
@@ -204,15 +193,26 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
 
                 // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
                 StreamManager.sessionIDAndRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
-                sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
+//                sessionRtpPortMap.put(struPushInfoIn.lSessionID, rtpPort);
 
                 log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", struPushInfoIn.lSessionID, rtpPort);
             }
         }
     }
 
+    @Async
     @Override
     public void playbackByTime(String streamKey, Integer loginId, Integer channelId, String startTime, String endTime) {
+        if (channelId == null) return;
+
+        // 防重复：如果该设备已在预览或已有RTP服务，直接返回
+        if (playbackLatchMap.containsKey(streamKey) || StreamManager.playbackDeviceRTP.containsKey(streamKey)) {
+            log.info("通道已在预览中，忽略重复开启: {}", streamKey);
+            return;
+        }
+        CountDownLatch latch = new CountDownLatch(1);
+        playbackLatchMap.put(streamKey, latch);
+
         NET_EHOME_PLAYBACK_INFO_IN m_struPlayBackInfoIn = new NET_EHOME_PLAYBACK_INFO_IN();
         m_struPlayBackInfoIn.read();
         m_struPlayBackInfoIn.dwSize = m_struPlayBackInfoIn.size();
@@ -259,11 +259,12 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
             m_struPlayBackInfoOut.read();
             System.out.println("NET_ECMS_StartPlayBack succeed, lSessionID:" + m_struPlayBackInfoOut.lSessionID);
         }
-
+        int lSessionID = m_struPlayBackInfoOut.lSessionID;
+        StreamManager.playbackUserIDandSessionMap.put(loginId * 100 + channelId, lSessionID);
         NET_EHOME_PUSHPLAYBACK_IN m_struPushPlayBackIn = new NET_EHOME_PUSHPLAYBACK_IN();
         m_struPushPlayBackIn.read();
         m_struPushPlayBackIn.dwSize = m_struPushPlayBackIn.size();
-        m_struPushPlayBackIn.lSessionID = m_struPlayBackInfoOut.lSessionID;
+        m_struPushPlayBackIn.lSessionID = lSessionID;
         m_struPushPlayBackIn.write();
 
         NET_EHOME_PUSHPLAYBACK_OUT m_struPushPlayBackOut = new NET_EHOME_PUSHPLAYBACK_OUT();
@@ -274,13 +275,6 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
         if (!hcisupcms.NET_ECMS_StartPushPlayBack(loginId, m_struPushPlayBackIn, m_struPushPlayBackOut)) {
             System.out.println("NET_ECMS_StartPushPlayBack failed, error code:" + hcisupcms.NET_ECMS_GetLastError());
         } else {
-            System.out.println("NET_ECMS_StartPushPlayBack succeed, sessionID:" + m_struPushPlayBackIn.lSessionID + ",lUserID:" + loginId);
-            // 创建异步控制器
-            int loginchannelId = loginId * 100 + channelId;
-            StreamManager.playbackLoginchannelIdAndstopflag.put(loginchannelId, false);
-            StreamManager.playbackUserIDandSessionMap.put(loginchannelId, m_struPushPlayBackIn.lSessionID);
-//                StreamManager.playbackConcurrentMap.put(m_struPushPlayBackIn.lSessionID, new StreamHandler(rtmpUrl, completableFuture, 2, loginchannelId));
-
             // 动态分配RTP端口
             int rtpPort = allocateRtpPort();
             if (rtpPort == -1) {
@@ -288,34 +282,71 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 return;
             }
             MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "playback", streamKey);
-            StreamManager.deviceRTPPlayback.put(streamKey, mkRtpServer);
+            StreamManager.playbackDeviceRTP.put(streamKey, mkRtpServer);
+            // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
+            StreamManager.playbackSessionIDAndRtpPortMap.put(lSessionID, rtpPort);
+//            playbackSessionRtpPortMap.put(lSessionID, rtpPort);
+
+            log.info("NET_ECMS_StartPushRealStream succeed, sessionID: {}, 分配RTP端口: {}", lSessionID, rtpPort);
+        }
+
+        try {
+            // 阻塞，直到 stopPreview() 调用 latch.countDown()
+            latch.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            playbackLatchMap.remove(streamKey);
         }
     }
 
     @Override
-    public void stopPlayBackByTime(Integer loginId) {
-        Integer lSessionID = StreamManager.playbackUserIDandSessionMap.get(loginId);
-        if (lSessionID != null) {
-            if (!hcisupcms.NET_ECMS_StopPlayBack(loginId, lSessionID)) {
-                System.out.println("NET_ECMS_StopPlayBack failed,err = " + hcisupcms.NET_ECMS_GetLastError());
-                return;
-            }
-            System.out.println("CMS发送回放停止请求");
-            if (!hikISUPStream.NET_ESTREAM_StopPlayBack(StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID))) {
-                System.out.println("NET_ESTREAM_StopPlayBack failed,err = " + hikISUPStream.NET_ESTREAM_GetLastError());
-                return;
-            }
-            System.out.println("停止回放Stream服务的实时流转发");
-
-            Integer lPreviewHandle = StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID);
-            StreamManager.playbackSessionIDAndPreviewHandleMap.remove(lSessionID);
-            StreamManager.playbackPreviewHandSAndSessionIDandMap.remove(lPreviewHandle);
-            StreamManager.playbackUserIDandSessionMap.remove(loginId);
-            if (!StreamManager.playbackPreviewHandSAndSessionIDandMap.containsKey(lPreviewHandle)
-                    && !StreamManager.playbackUserIDandSessionMap.containsKey(loginId)
-                    && !StreamManager.playbackSessionIDAndPreviewHandleMap.containsKey(lSessionID)) {
-                log.info("会话:{} 相关资源已被清空", lSessionID);
-            }
+    public void stopPlayBackByTime(String deviceId, Integer loginId, Integer channelId) {
+        if (channelId == null) {
+            log.error("通道号不能为空，无法停止预览");
+            return;
+        }
+        String streamKey = deviceId + "_" + channelId;
+        Integer lSessionID = StreamManager.playbackUserIDandSessionMap.get(loginId * 100 + channelId);
+        if (lSessionID == null) {
+            log.error("无效的会话ID，无法停止预览");
+            return;
+        }
+        Integer lPreviewHandle = StreamManager.playbackSessionIDAndPreviewHandleMap.get(lSessionID);
+        if (lPreviewHandle == null) {
+            log.error("无效的预览句柄，无法停止预览");
+            return;
+        }
+        if (!hikISUPStream.NET_ESTREAM_StopPlayBack(lPreviewHandle)) {
+            System.out.println("NET_ESTREAM_StopPlayBack failed,err = " + hikISUPStream.NET_ESTREAM_GetLastError());
+            return;
+        }
+        if (!hcisupcms.NET_ECMS_StopPlayBack(loginId, lSessionID)) {
+            System.out.println("NET_ECMS_StopPlayBack failed,err = " + hcisupcms.NET_ECMS_GetLastError());
+            return;
+        }
+        Integer rtpPort = StreamManager.playbackSessionIDAndRtpPortMap.remove(lSessionID);
+        if (rtpPort != null) {
+            log.info("释放RTP端口");
+            releaseRtpPort(rtpPort);
+        }
+        StreamManager.playbackPreviewHandSAndSessionIDandMap.remove(lPreviewHandle);
+        StreamManager.playbackSessionIDAndPreviewHandleMap.remove(lSessionID);
+        StreamManager.playbackUserIDandSessionMap.remove(loginId * 100 + channelId);
+        if (!StreamManager.playbackPreviewHandSAndSessionIDandMap.containsKey(lPreviewHandle)
+                && !StreamManager.playbackUserIDandSessionMap.containsKey(loginId * 100 + channelId)
+                && !StreamManager.playbackSessionIDAndPreviewHandleMap.containsKey(lSessionID)) {
+            log.info("会话:{} 相关资源已被清空", lSessionID);
+        }
+        MK_RTP_SERVER mkRtpServer = StreamManager.playbackDeviceRTP.get(streamKey);
+        if (mkRtpServer != null) {
+            zlmApi.mk_rtp_server_release(mkRtpServer);
+            StreamManager.playbackDeviceRTP.remove(streamKey);
+        }
+        CountDownLatch latch = playbackLatchMap.get(streamKey);
+        if (latch != null) {
+            latch.countDown(); // 唤醒 preview
+            log.info("结束回放实例: {}", streamKey);
         }
     }
 
