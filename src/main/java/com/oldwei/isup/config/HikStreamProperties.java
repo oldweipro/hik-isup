@@ -9,15 +9,9 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "hik.stream")
 public class HikStreamProperties {
 
-    private Rtmp rtmp;
+    private Boolean isSSL;
+    private String domain;
     private Http http;
-
-    @Data
-    public static class Rtmp {
-        private String ip;
-        private String port;
-        private String listenIp;
-    }
 
     @Data
     public static class Http {

@@ -56,20 +56,14 @@ public class StreamController {
         if (StreamManager.deviceRTP.containsKey(streamKey)) {
             log.info("通道已在预览中，忽略重复开启: {}", streamKey);
             PlayURL playURL = new PlayURL();
-            playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":"
-                    + hikStreamProperties.getRtmp().getPort() + "/live/" + streamKey);
-            playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":"
-                    + hikStreamProperties.getHttp().getPort() + "/live/" + streamKey + ".live.flv");
+            playURL.setHttpFlv(buildHttpFlvStreamUrl("live", streamKey));
             return R.ok(playURL);
         }
 
         mediaStreamService.preview(device, channelId);
 
         PlayURL playURL = new PlayURL();
-        playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":"
-                + hikStreamProperties.getRtmp().getPort() + "/live/" + streamKey);
-        playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":"
-                + hikStreamProperties.getHttp().getPort() + "/live/" + streamKey + ".live.flv");
+        playURL.setHttpFlv(buildHttpFlvStreamUrl("live", streamKey));
 
         return R.ok(playURL);
     }
@@ -136,10 +130,7 @@ public class StreamController {
         if (StreamManager.playbackDeviceRTP.containsKey(streamKey)) {
             log.info("通道已在预览中，忽略重复开启: {}", streamKey);
             PlayURL playURL = new PlayURL();
-            playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":"
-                    + hikStreamProperties.getRtmp().getPort() + "/playback/" + streamKey);
-            playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":"
-                    + hikStreamProperties.getHttp().getPort() + "/playback/" + streamKey + ".live.flv");
+            playURL.setHttpFlv(buildHttpFlvStreamUrl("playback", streamKey));
             return R.ok(playURL);
         }
 
@@ -148,10 +139,7 @@ public class StreamController {
         mediaStreamService.playbackByTime(streamKey, loginId, channelId, startTime, endTime);
 
         PlayURL playURL = new PlayURL();
-        playURL.setRtmp("rtmp://" + hikStreamProperties.getRtmp().getIp() + ":"
-                + hikStreamProperties.getRtmp().getPort() + "/playback/" + streamKey);
-        playURL.setHttpFlv("http://" + hikStreamProperties.getHttp().getIp() + ":"
-                + hikStreamProperties.getHttp().getPort() + "/playback/" + streamKey + ".live.flv");
+        playURL.setHttpFlv(buildHttpFlvStreamUrl("playback", streamKey));
 
         return R.ok(playURL);
     }
@@ -169,5 +157,15 @@ public class StreamController {
             mediaStreamService.stopPlayBackByTime(deviceId, loginId, channelId);
         }
         return R.ok();
+    }
+
+    private String buildHttpFlvStreamUrl(String prefix, String streamKey) {
+        Boolean isSSL = hikStreamProperties.getIsSSL();
+        if (isSSL != null && isSSL) {
+            return "https://" + hikStreamProperties.getDomain() + "/" + prefix + "/" + streamKey + ".live.flv";
+
+        }
+        return "http://" + hikStreamProperties.getHttp().getIp() + ":"
+                + hikStreamProperties.getHttp().getPort() + "/" + prefix + "/" + streamKey + ".live.flv";
     }
 }

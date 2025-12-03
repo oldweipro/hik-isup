@@ -3,17 +3,15 @@ spring:
     name: hik-isup
 server:
   port: 16233
+  address: 0.0.0.0
 
 hik:
   platform:
     pushAddress: http://192.168.2.47:9080/iot/event/HK/callback
+    ttsServer: http://localhost:3000/api/v1/tts/generateJson
   stream:
-    rtmp:
-      #      公网对接填入公网地址
-      ip: 192.168.2.235
-      #      服务器本地地址
-      listenIp: 192.168.2.235
-      port: 7935
+    isSSL: false
+    domain: __defaultVhost__
     http:
       #      公网对接填入公网地址
       ip: 192.168.2.235

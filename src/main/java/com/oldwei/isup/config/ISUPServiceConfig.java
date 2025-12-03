@@ -167,7 +167,7 @@ public class ISUPServiceConfig {
             }
         }
         //启用SDK写日志
-        boolean logToFile = hikISUPStorage.NET_ESS_SetLogToFile(3, System.getProperty("user.dir") + "/EHomeSDKLog", false);
+        boolean logToFile = hikISUPStorage.NET_ESS_SetLogToFile(3, System.getProperty("user.dir") + "/container/EHomeSDKLog", false);
         return hikISUPStorage;
     }
 
@@ -238,6 +238,11 @@ public class ISUPServiceConfig {
             hcisupcms.NET_ECMS_SetSDKInitCfg(1, ptrByteArraySsl.getPointer());
             //注册服务初始化
             boolean binit = hcisupcms.NET_ECMS_Init();
+            if (binit) {
+                log.info("Linux 初始化成功");
+            } else {
+                log.error("Linux 初始化失败，错误码：{}", hcisupcms.NET_ECMS_GetLastError());
+            }
             //设置HCAapSDKCom组件库文件夹所在路径
             BYTE_ARRAY ptrByteArrayCom = new BYTE_ARRAY(256);
             String strPathCom = System.getProperty("user.dir") + "/sdk/linux/HCAapSDKCom/";        //只支持绝对路径，建议使用英文路径
@@ -321,7 +326,7 @@ public class ISUPServiceConfig {
                 log.error("NET_ESTREAM_SetSDKLocalCfg 5 failed, error: {}", hikISUPStream.NET_ESTREAM_GetLastError());
             }
         }
-        hikISUPStream.NET_ESTREAM_SetLogToFile(3, "./EHomeSDKLog", false);
+        hikISUPStream.NET_ESTREAM_SetLogToFile(3, "./container/EHomeSDKLog", false);
         log.info("*************** 初始化 HIK ISUP STREAM SDK 完毕 ***************");
         return hikISUPStream;
     }

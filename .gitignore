@@ -30,15 +30,11 @@ build/
 .vscode/
 *.log
 pic/
-output/
 
-/EHomeSDKLog/
-/sdk/
+/logs/
+/sdklog/
 /rtsp_server/
 *.tar
 
 #hiksdk
-ISUPPicServer/
-outputFiles/
-/resources/
-/upload/
+/container/

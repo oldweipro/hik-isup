@@ -10,5 +10,6 @@ import org.springframework.stereotype.Component;
 public class HikPlatformProperties {
 
     private String pushAddress;
+    private String ttsServer;
 
 }

@@ -91,7 +91,8 @@ public class StartedUpRunner implements ApplicationRunner, DisposableBean {
 
         log.info("=========================  开启报警服务监听  =========================");
         NET_EHOME_ALARM_LISTEN_PARAM net_ehome_alarm_listen_param = new NET_EHOME_ALARM_LISTEN_PARAM();
-        System.arraycopy(hikIsupProperties.getAlarmServer().getListenIp().getBytes(), 0, net_ehome_alarm_listen_param.struAddress.szIP,
+        System.arraycopy(hikIsupProperties.getAlarmServer().getListenIp().getBytes(),
+                0, net_ehome_alarm_listen_param.struAddress.szIP,
                 0, hikIsupProperties.getAlarmServer().getListenIp().length());
         if (Short.parseShort(hikIsupProperties.getAlarmServer().getType()) == 2) {
             net_ehome_alarm_listen_param.struAddress.wPort = Short.parseShort(hikIsupProperties.getAlarmServer().getListenTcpPort());

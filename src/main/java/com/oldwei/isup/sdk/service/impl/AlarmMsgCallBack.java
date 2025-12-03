@@ -28,9 +28,9 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
 
     @Override
     public boolean invoke(int iHandle, NET_EHOME_ALARM_MSG pAlarmMsg, Pointer pUser) {
-        log.info("--------报警回调函数被调用--------");
+//        log.info("--------报警回调函数被调用--------");
         // 输出事件信息到控制台上
-        log.info("AlarmType: {}, dwAlarmInfoLen: {}, dwXmlBufLen: {}, iHandle: {}", pAlarmMsg.dwAlarmType, pAlarmMsg.dwAlarmInfoLen, pAlarmMsg.dwXmlBufLen, iHandle);
+//        log.info("AlarmType: {}, dwAlarmInfoLen: {}, dwXmlBufLen: {}, iHandle: {}", pAlarmMsg.dwAlarmType, pAlarmMsg.dwAlarmInfoLen, pAlarmMsg.dwXmlBufLen, iHandle);
 
         ObjectMapper mapper = new ObjectMapper();
         if (pAlarmMsg.dwXmlBufLen > 0) {
@@ -43,7 +43,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
             // 输出事件信息到文件中
             CommonMethod.outputToFile("dwAlarmType_pXmlBuf_" + pAlarmMsg.dwAlarmType, ".xml", strXML);
             // 输出事件信息到控制台上
-            log.info("XML事件信息: {}", strXML);
+//            log.info("XML事件信息: {}", strXML);
         } else {
             AlarmEventHandle.processAlarmData(pAlarmMsg.dwAlarmType,
                     pAlarmMsg.pAlarmInfo, pAlarmMsg.dwAlarmInfoLen,
@@ -80,7 +80,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     uploadData.setData(jsonString);
                                     String pushPath = hikPlatformProperties.getPushAddress();
                                     WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-                                        log.info("推送到 {} 返回结果：{}", pushPath, resp);
+//                                        log.info("推送到 {} 返回结果：{}", pushPath, resp);
                                     }, error -> {
                                         log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                     });
@@ -96,7 +96,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     uploadData.setDataType("FaceCapture");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(faceEvent);
-                                    log.info("检测到人脸抓拍：{}", jsonString);
+//                                    log.info("检测到人脸抓拍：{}", jsonString);
                                     uploadData.setData(jsonString);
                                 } else if (event instanceof GPSUploadEvent gpsEvent) {
                                     // log.info("GPS 上报：{}", gpsEvent.getGps());
@@ -118,7 +118,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
 
                                 String pushPath = hikPlatformProperties.getPushAddress();
                                 WebFluxHttpUtil.postAsync(pushPath, uploadData, String.class).subscribe(resp -> {
-                                    log.info("推送到 {} 返回结果：{}", pushPath, resp);
+//                                    log.info("推送到 {} 返回结果：{}", pushPath, resp);
                                 }, error -> {
                                     log.error("推送到 {} 失败：{}", pushPath, error.getMessage());
                                 });

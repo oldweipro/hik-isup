@@ -1,5 +1,6 @@
 package com.oldwei.isup.controller;
 
+import com.oldwei.isup.config.HikPlatformProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.model.R;
 import com.oldwei.isup.model.tts.DataItem;
@@ -33,11 +34,12 @@ import java.util.UUID;
 @RequestMapping("/api/devices/{deviceId}/voice")
 @RequiredArgsConstructor
 public class VoiceController {
-    
+
     private final IMediaStreamService mediaStreamService;
     private final DeviceCacheService deviceCacheService;
-    
-    private static final String UPLOAD_DIR = "upload/audio/";
+    private final HikPlatformProperties hikPlatformProperties;
+
+    private static final String UPLOAD_DIR = "container/upload/audio/";
 
     /**
      * TTS语音播报
@@ -47,6 +49,16 @@ public class VoiceController {
             @PathVariable String deviceId,
             @RequestBody DataItem dataItem) {
 
+        // 增加一个判断，如果文件夹不存在则创建文件夹
+        try {
+            Path uploadDirPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadDirPath)) {
+                Files.createDirectories(uploadDirPath);
+            }
+        } catch (IOException e) {
+            log.error("创建上传目录失败: {}", e.getMessage());
+            return Mono.just(R.fail("服务器内部错误，无法创建上传目录"));
+        }
         // 生成唯一文件名
         String filename = UUID.randomUUID().toString();
         String mp3Filename = "tts_" + filename + ".mp3";
@@ -59,7 +71,7 @@ public class VoiceController {
         if (deviceOpt.isEmpty()) {
             return Mono.just(R.fail("设备ID不存在: " + deviceId));
         }
-        
+
         Device device = deviceOpt.get();
         Integer loginId = device.getLoginId();
 
@@ -70,10 +82,10 @@ public class VoiceController {
         TtsRequest request = new TtsRequest();
         request.setData(dataList);
 
-        String url = "http://localhost:3000/api/v1/tts/generateJson";
+        String ttsServerUrl = hikPlatformProperties.getTtsServer();
 
         // 异步发送TTS请求并处理文件转换和转录
-        return WebFluxHttpUtil.postAsync(url, request, byte[].class)
+        return WebFluxHttpUtil.postAsync(ttsServerUrl, request, byte[].class)
                 .flatMap(audioData -> {
                     if (audioData == null || audioData.length == 0) {
                         return Mono.error(new RuntimeException("TTS音频数据为空"));
@@ -155,6 +167,15 @@ public class VoiceController {
             @PathVariable String deviceId,
             @RequestPart("file") FilePart filePart) {
 
+        try {
+            Path uploadDirPath = Paths.get(UPLOAD_DIR);
+            if (!Files.exists(uploadDirPath)) {
+                Files.createDirectories(uploadDirPath);
+            }
+        } catch (IOException e) {
+            log.error("创建上传目录失败: {}", e.getMessage());
+            return Mono.just(R.fail("服务器内部错误，无法创建上传目录"));
+        }
         // 生成唯一文件名
         String originalFilename = filePart.filename();
         String suffix = originalFilename.contains(".")
@@ -168,7 +189,7 @@ public class VoiceController {
         if (deviceOpt.isEmpty()) {
             return Mono.just(R.fail("设备ID不存在: " + deviceId));
         }
-        
+
         Device device = deviceOpt.get();
         Integer loginId = device.getLoginId();
 

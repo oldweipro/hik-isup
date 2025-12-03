@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <script type="text/javascript" src="./js/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript" src="./js/js.cookie.js"></script>
+    <script type="text/javascript" src="./js/base64.js"></script>
+    <script type="text/javascript">
+		function getUrlParam(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)");
+			var r = window.location.search.substr(1).match(reg);
+			if (r != null) return unescape(r[2]); return null;
+        }
+		var deviceID = getUrlParam('deviceId');
+		var userName = "admin";
+        //EHOME协议加入NVR类型的encoder设备，
+        //EHOME协议加入的报警主机设备
+        function goEhomeDispatch(userName, deviceID) {
+            Cookies.set('is_ehome_device', '1');
+            Cookies.set('deviceId', deviceID);
+            sessionStorage.setItem('userInfo', $.base64.encode(userName + ':' ));
+            let info = JSON.stringify({
+                version: '1.1',
+                mode: 'ehome',
+                language: 'en',
+                needLogin: false,
+                videoMode: 'image'
+            });
+            sessionStorage.setItem('deviceInfo', info);
+			var protocol =  window.location.protocol;
+			var hostName =  window.location.host;
+            window.location.href = protocol+ '//' + hostName +'/doc/dispatch/dispatchConfig.asp';
+        }
+        goEhomeDispatch(userName, deviceID);
+    </script>
+</head>
+<body>
+</body>
+</html>

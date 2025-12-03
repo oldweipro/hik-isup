@@ -11,6 +11,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service("voiceTalkDataCallBack")
 public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
@@ -21,10 +24,54 @@ public class VoiceTalkDataCallBackImpl implements VOICETALK_DATA_CB {
     public VoiceTalkDataCallBackImpl() {
         // 保存回调函数的音频数据
         if (OsSelect.isWindows()) {
-            fileG7 = new File(CommonMethod.getResFileAbsPath("resources\\audioFile\\DeviceToPlat.g7"));
+            String resFileAbsPath = CommonMethod.getResFileAbsPath("container\\resources\\audioFile\\DeviceToPlat.g7");
+            // 如果resFileAbsPath不存在则创建
+            Path filePath = Paths.get(resFileAbsPath);
+
+            // 检查文件是否存在
+            if (!Files.exists(filePath)) {
+                try {
+                    // 创建父目录（如果不存在）
+                    Path parentDir = filePath.getParent();
+                    if (parentDir != null && !Files.exists(parentDir)) {
+                        Files.createDirectories(parentDir);
+                    }
+                    // 创建空文件
+                    Files.createFile(filePath);
+                    System.out.println("文件已创建: " + filePath);
+                } catch (IOException e) {
+                    System.err.println("创建文件时发生错误: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("文件已存在: " + filePath);
+            }
+            fileG7 = new File(resFileAbsPath);
         }
         if (OsSelect.isLinux()) {
-            fileG7 = new File(CommonMethod.getResFileAbsPath("/resources/audioFile/DeviceToPlat.g7"));
+            String resFileAbsPath = CommonMethod.getResFileAbsPath("container/resources/audioFile/DeviceToPlat.g7");
+            // 如果resFileAbsPath不存在则创建
+            Path filePath = Paths.get(resFileAbsPath);
+
+            // 检查文件是否存在
+            if (!Files.exists(filePath)) {
+                try {
+                    // 创建父目录（如果不存在）
+                    Path parentDir = filePath.getParent();
+                    if (parentDir != null && !Files.exists(parentDir)) {
+                        Files.createDirectories(parentDir);
+                    }
+                    // 创建空文件
+                    Files.createFile(filePath);
+                    System.out.println("文件已创建: " + filePath);
+                } catch (IOException e) {
+                    System.err.println("创建文件时发生错误: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("文件已存在: " + filePath);
+            }
+            fileG7 = new File(resFileAbsPath);
         }
         try {
             if (!fileG7.exists()) {

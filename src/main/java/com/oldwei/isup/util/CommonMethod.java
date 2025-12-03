@@ -85,10 +85,10 @@ public class CommonMethod {
         SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss_SSS");
         String folder = "";
         if (OsSelect.isWindows()) {
-            folder = System.getProperty("user.dir") + "\\outputFiles\\event\\";
+            folder = System.getProperty("user.dir") + "\\container\\outputFiles\\event\\";
         }
         if (OsSelect.isLinux()) {
-            folder = System.getProperty("user.dir") + "/outputFiles/event/";
+            folder = System.getProperty("user.dir") + "/container/outputFiles/event/";
         }
         File directory = new File(folder);
         if (!directory.exists()) {

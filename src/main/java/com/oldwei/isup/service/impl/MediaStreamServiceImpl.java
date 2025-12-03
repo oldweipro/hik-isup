@@ -3,6 +3,7 @@ package com.oldwei.isup.service.impl;
 import com.aizuda.zlm4j.core.ZLMApi;
 import com.aizuda.zlm4j.structure.MK_RTP_SERVER;
 import com.oldwei.isup.config.HikIsupProperties;
+import com.oldwei.isup.config.HikStreamProperties;
 import com.oldwei.isup.model.Device;
 import com.oldwei.isup.sdk.StreamManager;
 import com.oldwei.isup.sdk.service.HCISUPCMS;
@@ -28,6 +29,7 @@ import java.util.concurrent.CountDownLatch;
 public class MediaStreamServiceImpl implements IMediaStreamService {
 
     private final HikIsupProperties hikIsupProperties;
+    private final HikStreamProperties hikStreamProperties;
     private final IHikISUPStream hikISUPStream;
     private final HCISUPCMS hcisupcms;
     private final ZLMApi zlmApi;
@@ -188,7 +190,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                     return;
                 }
 
-                MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "live", device.getDeviceId() + "_" + channelId);
+                MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, hikStreamProperties.getDomain(), "live", device.getDeviceId() + "_" + channelId);
                 StreamManager.deviceRTP.put(device.getDeviceId() + "_" + channelId, mkRtpServer);
 
                 // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
@@ -281,7 +283,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
                 log.error("无法分配RTP端口，预览失败");
                 return;
             }
-            MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, "__defaultVhost__", "playback", streamKey);
+            MK_RTP_SERVER mkRtpServer = zlmApi.mk_rtp_server_create2((short) rtpPort, 1, hikStreamProperties.getDomain(), "playback", streamKey);
             StreamManager.playbackDeviceRTP.put(streamKey, mkRtpServer);
             // 保存 sessionID 与 RTP 端口的映射关系，供回调函数使用
             StreamManager.playbackSessionIDAndRtpPortMap.put(lSessionID, rtpPort);
