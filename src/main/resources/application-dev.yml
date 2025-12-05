@@ -13,7 +13,7 @@ hik:
     isSSL: false
     domain: __defaultVhost__
     http:
-      #      公网对接填入公网地址
+      # 公网对接填入公网地址
       ip: 192.168.2.235
       port: 7788
   isup:

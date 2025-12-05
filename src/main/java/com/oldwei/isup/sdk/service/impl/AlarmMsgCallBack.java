@@ -108,7 +108,7 @@ public class AlarmMsgCallBack implements EHomeMsgCallBack {
                                     uploadData.setDataType("AlarmResult");
                                     // 序列化为 JSON 字符串
                                     String jsonString = mapper.writeValueAsString(alarmResultEvent);
-                                    log.info("AlarmResultEvent 上报：{}", jsonString);
+//                                    log.info("AlarmResultEvent 上报：{}", jsonString);
                                     uploadData.setData(jsonString);
                                 } else {
                                     log.info("未知事件类型：{}", event.getEventType());

@@ -128,7 +128,7 @@ public class StreamController {
         String streamKey = deviceId + "_" + channelId;
         // 防重复：如果该通道已有RTP服务，直接返回播放地址
         if (StreamManager.playbackDeviceRTP.containsKey(streamKey)) {
-            log.info("通道已在预览中，忽略重复开启: {}", streamKey);
+            log.info("通道已在回放中，忽略重复开启: {}", streamKey);
             PlayURL playURL = new PlayURL();
             playURL.setHttpFlv(buildHttpFlvStreamUrl("playback", streamKey));
             return R.ok(playURL);

@@ -44,7 +44,7 @@ public class MediaStreamServiceImpl implements IMediaStreamService {
     private final Map<Integer, Boolean> allocatedPorts = new ConcurrentHashMap<>();
 
     @Override
-    @Async("streamExecutor")
+    @Async("taskExecutor")
     public void preview(Device device, Integer channelId) {
         if (channelId == null) return;
         // 防重复：如果该设备已在预览或已有RTP服务，直接返回

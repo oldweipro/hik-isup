@@ -57,6 +57,10 @@ public class PlaybackDataCallback implements PLAYBACK_DATA_CB {
             log.error("RTP连接不可用，句柄: {}", iPlayBackLinkHandle);
             return false;
         }
+        
+        if (pDataCBInfo.pData == null) {
+            return false;
+        }
 
         byte[] dataStream = pDataCBInfo.pData.getByteArray(0, pDataCBInfo.dwDataLen);
 
